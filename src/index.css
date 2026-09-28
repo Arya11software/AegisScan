@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --color-primary: #087F5B;
+    --color-primary-dark: #064E3B;
+    --color-accent: #34D399;
+    --color-background: #F7F8F5;
+    --color-surface: #FFFFFF;
+    --color-text-primary: #17211B;
+    --color-text-secondary: #64746A;
+    --color-border: #DDE5DF;
+    --color-critical: #C62828;
+    --color-warning: #B7791F;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-text-primary);
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* Custom crisp scrollbar for Light Enterprise UI */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F7F8F5;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #DDE5DF;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #64746A;
+}
+
+/* Custom enterprise status utility classes */
+.badge-emerald {
+  background-color: #E6F4F1;
+  color: #087F5B;
+  border: 1px solid #B2DFDB;
+}
+
+.badge-amber {
+  background-color: #FEF3C7;
+  color: #B7791F;
+  border: 1px solid #FDE68A;
+}
+
+.badge-crimson {
+  background-color: #FEE2E2;
+  color: #C62828;
+  border: 1px solid #FCA5A5;
+}
+
+.badge-sage {
+  background-color: #F0F4F2;
+  color: #64746A;
+  border: 1px solid #DDE5DF;
+}
