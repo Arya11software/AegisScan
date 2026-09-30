@@ -4,6 +4,10 @@
     {
       "source": "/api/:path*",
       "destination": "https://aegisscan-2l84.onrender.com/api/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }
