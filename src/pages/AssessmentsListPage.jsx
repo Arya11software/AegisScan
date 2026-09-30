@@ -5,24 +5,24 @@ import { useApp } from '../context/AppContext';
 
 export default function AssessmentsListPage() {
   const navigate = useNavigate();
-  const { assessments, triggerAssessment, latestScanResult, findings } = useApp();
+  const { assessments, triggerAssessment, latestScanResult, findings, targetProfile } = useApp();
 
   const realCheckFinding = findings.find(f => f.id.startsWith('F-REAL-') || f.isRealCheck);
   const activeObsCount = latestScanResult ? (latestScanResult.observations?.length || 0) : (realCheckFinding?.currentCondition === 'OBSERVED' ? 1 : 0);
 
   const liveAssessment = {
     id: 'WM-2026-LIVE',
-    targetName: 'World Monitor (Authorized Local Target)',
-    targetUrl: 'C:\\Users\\HP\\worldmonitor',
+    targetName: 'World Monitor (Authorized Target)',
+    targetUrl: targetProfile?.targetPath || 'Authorized Sandbox',
     environment: 'Authorized Sandbox',
     status: latestScanResult ? 'COMPLETED' : 'READY',
     authorizedBy: 'Security Analyst',
     createdAt: latestScanResult?.check?.timestamp || new Date().toISOString(),
-    scannedFilesCount: latestScanResult?.check?.scannedFilesCount || 887,
+    scannedFilesCount: latestScanResult?.check?.scannedFilesCount || 0,
     matchesCount: activeObsCount,
     sourceHash: latestScanResult?.check?.sourceHash || 'N/A',
     riskIndex: activeObsCount > 0 ? 85 : 0,
-    riskRating: activeObsCount > 0 ? 'High' : 'Clean'
+    riskRating: activeObsCount > 0 ? 'High' : 'Not Scanned'
   };
 
   return (
@@ -57,7 +57,7 @@ export default function AssessmentsListPage() {
         <div className="flex items-center justify-between border-b border-[#DDE5DF] pb-2">
           <span className="font-extrabold text-[#17211B] flex items-center gap-1.5 text-xs">
             <Shield className="w-4 h-4 text-[#087F5B]" />
-            LIVE TARGET ASSESSMENT (C:\Users\HP\worldmonitor)
+            LIVE TARGET ASSESSMENT ({targetProfile?.targetPath || 'Authorized Sandbox'})
           </span>
           <span className="badge-emerald text-[10px] font-bold px-2.5 py-0.5 rounded">
             REAL AST SCAN ENGINE

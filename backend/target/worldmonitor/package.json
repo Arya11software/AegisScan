@@ -1,0 +1,25 @@
+{
+  "name": "world-monitor",
+  "version": "2.1.0",
+  "description": "Geopolitical telemetry & map monitoring interface",
+  "type": "module",
+  "dependencies": {
+    "@clerk/clerk-js": "^5.12.0",
+    "maplibre-gl": "^4.7.1",
+    "@deck.gl/core": "^9.0.18",
+    "three": "^0.170.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zod": "^3.23.8",
+    "vite": "^5.4.9"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "@types/react": "^18.3.12",
+    "@types/three": "^0.170.0"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  }
+}

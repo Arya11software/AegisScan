@@ -1,14 +1,23 @@
 import express from 'express';
 import { Worker } from 'worker_threads';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { scannerService, SCOPE_TO_CHECKS_MAP } from './services/scannerService.js';
 import { profileTargetRepository, discoverAttackSurface } from './services/targetProfiler.js';
 import { dbService } from './services/dbService.js';
+import { targetService } from './services/targetService.js';
 import { canTransition, transitionFinding, LIFECYCLE_STATES } from './services/findingStateMachine.js';
 
+// ES-module-safe __dirname — worker path must resolve from THIS file's location
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// ---------------------------------------------------------------------------
+// Worker runner — path resolved relative to server.js (deployment-safe)
+// ---------------------------------------------------------------------------
 function runChecksInWorker(executableCheckIds) {
   return new Promise((resolve, reject) => {
-    const workerPath = path.resolve('backend/workers/scannerWorker.js');
+    const workerPath = path.join(__dirname, 'workers', 'scannerWorker.js');
     const worker = new Worker(workerPath, {
       workerData: { executableCheckIds }
     });
@@ -33,22 +42,51 @@ function runChecksInWorker(executableCheckIds) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Express setup
+// ---------------------------------------------------------------------------
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// CORS — allow localhost dev + configured Vercel frontend
+const ALLOWED_ORIGINS = new Set([
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:3000',
+  'http://localhost:4173',
+  ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : [])
+]);
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (!origin || ALLOWED_ORIGINS.has(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin || '*');
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
+
 app.use(express.json());
 
+// ---------------------------------------------------------------------------
 // 1. GET /api/health
+// ---------------------------------------------------------------------------
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'OK',
     engine: 'AegisScan Real Security Engine',
-    target: 'World Monitor (Authorized Local Sandbox)',
+    target: 'World Monitor (Authorized Sandbox)',
+    targetAvailable: targetService.isTargetAvailable(),
+    targetRoot: targetService.getAuthorizedRoot(),
     timestamp: new Date().toISOString()
   });
 });
 
-// 2. GET /api/target & POST /api/target/profile
+// ---------------------------------------------------------------------------
+// 2. GET /api/target  &  POST /api/target/profile
+// ---------------------------------------------------------------------------
 app.get('/api/target', (req, res) => {
   try {
     const profile = profileTargetRepository();
@@ -67,7 +105,9 @@ app.post('/api/target/profile', (req, res) => {
   }
 });
 
+// ---------------------------------------------------------------------------
 // 3. GET /api/attack-surface
+// ---------------------------------------------------------------------------
 app.get('/api/attack-surface', (req, res) => {
   try {
     const surface = discoverAttackSurface();
@@ -77,7 +117,9 @@ app.get('/api/attack-surface', (req, res) => {
   }
 });
 
-// 4. GET /api/security-checks & POST /api/security-checks/run
+// ---------------------------------------------------------------------------
+// 4. GET /api/security-checks  &  POST /api/security-checks/run
+// ---------------------------------------------------------------------------
 app.get('/api/security-checks', (req, res) => {
   res.json({
     success: true,
@@ -90,9 +132,21 @@ app.get('/api/security-checks', (req, res) => {
 app.post('/api/security-checks/run', (req, res) => {
   try {
     const { checkId = 'REAL-CHK-001' } = req.body;
+
+    // Guard: target must be available before scanning
+    if (!targetService.isTargetAvailable()) {
+      return res.status(200).json({
+        success: false,
+        status: 'TARGET_NOT_FOUND',
+        error: {
+          code: 'TARGET_NOT_FOUND',
+          message: `Authorized target directory not found at: ${targetService.getAuthorizedRoot()}. Set TARGET_ROOT environment variable to the correct path.`
+        }
+      });
+    }
+
     const result = scannerService.runCheck(checkId);
 
-    // Save scan result in dbService
     dbService.setLatestScanResult(result);
     if (result.findings && result.findings.length > 0) {
       result.findings.forEach(f => dbService.saveFinding(f));
@@ -107,10 +161,48 @@ app.post('/api/security-checks/run', (req, res) => {
   }
 });
 
-// 5. POST /api/assessment/start & GET /api/assessment/:id
+// ---------------------------------------------------------------------------
+// 5. POST /api/assessment/start  &  GET /api/assessment/:id
+// ---------------------------------------------------------------------------
 app.post('/api/assessment/start', async (req, res) => {
   try {
     const { targetName = 'World Monitor', scopes = [], checkIds = [] } = req.body;
+
+    // Guard: if target directory is missing, return explicit NOT_SCANNED — never report Clean
+    if (!targetService.isTargetAvailable()) {
+      const assessmentId = `WM-2026-${Date.now().toString().slice(-6)}`;
+      const failedAssessment = {
+        id: assessmentId,
+        targetName,
+        targetUrl: targetService.getAuthorizedRoot(),
+        environment: 'Authorized Sandbox',
+        status: 'TARGET_NOT_FOUND',
+        authorizedBy: 'Security Analyst',
+        authorizationConfirmed: true,
+        createdAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+        riskIndex: null,
+        riskRating: 'NOT_SCANNED',
+        totalFindingsCount: 0,
+        scannedFilesCount: 0,
+        scopes: [],
+        checkIds: [],
+        ruleIds: [],
+        notScannedReason: `Authorized target directory not found at: ${targetService.getAuthorizedRoot()}. Configure TARGET_ROOT environment variable.`
+      };
+      dbService.saveAssessment(failedAssessment);
+      dbService.addAuditLog('ASSESSMENT_FAILED', 'AegisScan Engine', targetName, 'Target directory not found — assessment aborted.');
+      return res.status(200).json({
+        success: false,
+        status: 'TARGET_NOT_FOUND',
+        assessmentId,
+        assessment: failedAssessment,
+        error: {
+          code: 'TARGET_NOT_FOUND',
+          message: failedAssessment.notScannedReason
+        }
+      });
+    }
 
     const resolvedCheckObjs = scannerService.resolveScopeAndCheckIds(scopes, checkIds);
     if (!resolvedCheckObjs || resolvedCheckObjs.length === 0) {
@@ -144,30 +236,50 @@ app.post('/api/assessment/start', async (req, res) => {
 
     const allFindings = dbService.getFindings();
     const activeFindings = allFindings.filter(f => f.currentCondition === 'OBSERVED');
+    const scannedFilesCount = scanResult?.check?.scannedFilesCount ?? 0;
+
+    // Critical rule: NEVER report Clean / riskIndex:0 when zero files were actually scanned
+    let riskRating;
+    let riskIndex;
+    if (scannedFilesCount === 0) {
+      riskRating = 'NOT_SCANNED';
+      riskIndex = null;
+    } else if (activeFindings.length > 0) {
+      riskRating = 'High';
+      riskIndex = 85;
+    } else {
+      riskRating = 'Clean';
+      riskIndex = 0;
+    }
 
     const newAssessment = {
       id: assessmentId,
       targetName,
-      targetUrl: 'C:\\Users\\HP\\worldmonitor',
-      environment: 'Authorized Local Sandbox',
-      status: 'COMPLETED',
+      targetUrl: targetService.getAuthorizedRoot(),
+      environment: 'Authorized Sandbox',
+      status: scannedFilesCount === 0 ? 'NOT_SCANNED' : 'COMPLETED',
       authorizedBy: 'Security Analyst',
       authorizationConfirmed: true,
       createdAt: new Date().toISOString(),
       completedAt: new Date().toISOString(),
-      riskIndex: activeFindings.length > 0 ? 85 : 0,
-      riskRating: activeFindings.length > 0 ? 'High' : 'Clean',
+      riskIndex,
+      riskRating,
+      scannedFilesCount,
+      matchesCount: scanResult?.check?.matchesCount ?? 0,
       totalFindingsCount: allFindings.length,
       validatedCount: allFindings.filter(f => f.validation?.status === 'CONFIRMED').length,
       verifiedCount: allFindings.filter(f => f.status === 'VERIFIED').length,
       retestCount: allFindings.filter(f => f.status === 'READY_FOR_RETEST' || f.status === 'VERIFIED' || f.status === 'REOPENED').length,
       scopes: scopes.length > 0 ? scopes : resolvedCheckObjs.map(c => c.category),
       checkIds: executableCheckIds,
-      ruleIds: executableRuleIds
+      ruleIds: executableRuleIds,
+      ...(scannedFilesCount === 0 ? {
+        notScannedReason: `Scanner completed but found 0 source files at: ${targetService.getAuthorizedRoot()}. Verify TARGET_ROOT configuration.`
+      } : {})
     };
 
     dbService.saveAssessment(newAssessment);
-    dbService.addAuditLog('ASSESSMENT_START', 'AegisScan Engine', targetName, `Assessment ${assessmentId} completed for ${executableCheckIds.length} check(s).`);
+    dbService.addAuditLog('ASSESSMENT_START', 'AegisScan Engine', targetName, `Assessment ${assessmentId} completed for ${executableCheckIds.length} check(s). Files scanned: ${scannedFilesCount}.`);
 
     res.json({
       success: true,
@@ -199,7 +311,9 @@ app.post('/api/reset-demo', (req, res) => {
   res.json({ success: true, message: 'Backend persistent store reset to baseline state.' });
 });
 
-// 6. GET /api/findings & GET /api/findings/:id
+// ---------------------------------------------------------------------------
+// 6. GET /api/findings  &  GET /api/findings/:id
+// ---------------------------------------------------------------------------
 app.get('/api/findings', (req, res) => {
   res.json({
     success: true,
@@ -215,7 +329,9 @@ app.get('/api/findings/:id', (req, res) => {
   res.json({ success: true, finding });
 });
 
-// 7. GET /api/evidence & GET /api/evidence/:id
+// ---------------------------------------------------------------------------
+// 7. GET /api/evidence  &  GET /api/evidence/:id
+// ---------------------------------------------------------------------------
 app.get('/api/evidence', (req, res) => {
   const map = dbService.getEvidenceMap();
   res.json({
@@ -232,7 +348,9 @@ app.get('/api/evidence/:id', (req, res) => {
   res.json({ success: true, evidence });
 });
 
+// ---------------------------------------------------------------------------
 // 8. POST /api/ai/analyze
+// ---------------------------------------------------------------------------
 app.post('/api/ai/analyze', (req, res) => {
   try {
     const { findingId, observation } = req.body;
@@ -273,7 +391,9 @@ app.post('/api/ai/analyze', (req, res) => {
   }
 });
 
+// ---------------------------------------------------------------------------
 // 9. POST /api/findings/:id/validate, /remediation, /retest
+// ---------------------------------------------------------------------------
 app.post('/api/findings/:id/validate', (req, res) => {
   const finding = dbService.getFinding(req.params.id);
   if (!finding) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Finding not found' } });
@@ -313,7 +433,7 @@ app.post('/api/findings/:id/retest', (req, res) => {
   const finding = dbService.getFinding(req.params.id);
   if (!finding) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Finding not found' } });
 
-  // Re-run real scanner check against C:\Users\HP\worldmonitor
+  // Re-run real scanner check
   const checkIdToRun = finding.checkId || 'REAL-CHK-001';
   const scanResult = scannerService.runCheck(checkIdToRun);
 
@@ -341,7 +461,9 @@ app.post('/api/findings/:id/retest', (req, res) => {
   }
 });
 
+// ---------------------------------------------------------------------------
 // 10. GET /api/reports/:assessmentId
+// ---------------------------------------------------------------------------
 app.get('/api/reports/:assessmentId', (req, res) => {
   const assessment = dbService.getAssessment(req.params.assessmentId) || {
     id: req.params.assessmentId,
@@ -371,18 +493,25 @@ app.get('/api/reports/:assessmentId', (req, res) => {
   });
 });
 
-const server = app.listen(PORT, () => {
-  console.log(`[AegisScan Backend] Security Engine running on http://localhost:${PORT}`);
+// ---------------------------------------------------------------------------
+// Start server — bind to 0.0.0.0 so Render can reach it
+// ---------------------------------------------------------------------------
+const server = app.listen(PORT, '0.0.0.0', () => {
+  const targetAvail = targetService.isTargetAvailable();
+  console.log(`[AegisScan Backend] Security Engine running on port ${PORT}`);
+  console.log(`[AegisScan Backend] Target root: ${targetService.getAuthorizedRoot()}`);
+  console.log(`[AegisScan Backend] Target available: ${targetAvail}`);
+  if (!targetAvail) {
+    console.warn(`[AegisScan Backend] WARNING: Authorized target directory not found. Assessments will return NOT_SCANNED until TARGET_ROOT is configured.`);
+  }
 });
 
 server.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
-    console.error(`[AegisScan Backend Error] Port ${PORT} is already in use by another process.`);
+    console.error(`[AegisScan Backend Error] Port ${PORT} is already in use.`);
     process.exit(1);
   } else {
     console.error(`[AegisScan Backend Error] Server startup failure:`, err.message);
     process.exit(1);
   }
 });
-
-

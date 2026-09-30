@@ -81,13 +81,13 @@ export default function TargetsListPage() {
 
   const p = profile || {
     targetName: 'World Monitor',
-    targetPath: 'C:\\Users\\HP\\worldmonitor',
+    targetPath: 'Authorized Sandbox',
     environment: 'Authorized Local Sandbox',
     type: 'Web Application & Telemetry Platform',
     status: 'Ready for Assessment',
     techStack: ['TypeScript', 'React', 'Vite', 'MapLibre', 'Three.js', 'deck.gl'],
-    fileCounts: { totalFiles: 887, sourceFiles: 620, configFiles: 42, envFiles: 3 },
-    dependenciesCount: 48
+    fileCounts: { totalFiles: 0, sourceFiles: 0, configFiles: 0, envFiles: 0 },
+    dependenciesCount: 0
   };
 
   return (

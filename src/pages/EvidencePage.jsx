@@ -116,7 +116,7 @@ export default function EvidencePage() {
               <span className="font-mono text-[11px] text-[#087F5B] font-bold">Source Hash: {latestScanResult.check?.sourceHash || 'N/A'}</span>
             </div>
             <p className="text-[#17211B]">
-              Babel AST analyzer evaluated <strong className="font-mono">{latestScanResult.check?.scannedFilesCount || 0} source files</strong> in <strong className="font-mono">C:\Users\HP\worldmonitor</strong>. Zero client-accessible credential assignment patterns detected in target source.
+              Babel AST analyzer evaluated <strong className="font-mono">{latestScanResult.check?.scannedFilesCount || 0} source files</strong> in <strong className="font-mono">{latestScanResult.check?.targetRoot || 'authorized target'}</strong>. Zero client-accessible credential assignment patterns detected in target source.
             </p>
           </div>
         )}

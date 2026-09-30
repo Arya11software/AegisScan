@@ -204,7 +204,7 @@ export function AppProvider({ children }) {
           isFinished: true
         }));
 
-        showToast(`Assessment completed successfully against C:\\Users\\HP\\worldmonitor.`, 'success');
+        showToast(`Assessment completed successfully against ${targetName}.`, 'success');
 
         // Trigger background data sync without blocking navigation
         refreshData().catch(err => console.error('Background refresh error:', err));

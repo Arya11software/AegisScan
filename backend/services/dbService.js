@@ -1,7 +1,14 @@
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
-const DB_FILE = path.resolve('backend/data/store.json');
+// ES-module-safe __dirname — always relative to THIS file's actual location
+// so dbService works correctly regardless of process.cwd()
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Data file lives at  backend/data/store.json — two dirs up from services/
+const DB_FILE = path.join(__dirname, '..', 'data', 'store.json');
 
 function ensureDbDir() {
   const dir = path.dirname(DB_FILE);
