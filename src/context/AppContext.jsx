@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { apiService } from '../services/apiService';
 import { LIFECYCLE_STATES } from '../services/findingStateMachine';
 
@@ -23,6 +23,11 @@ export function AppProvider({ children }) {
   const [findings, setFindings] = useState([]);
   const [evidenceList, setEvidenceList] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
+  const [securityChecks, setSecurityChecks] = useState([]);
+  const [availableScopes, setAvailableScopes] = useState([]);
+  const [scopeMap, setScopeMap] = useState({});
+  const [loadingSecurityChecks, setLoadingSecurityChecks] = useState(true);
+  const [securityChecksError, setSecurityChecksError] = useState(null);
   const [latestScanResult, setLatestScanResultState] = useState(null);
   const [toast, setToast] = useState(null);
   const [backendStatus, setBackendStatus] = useState('CONNECTING');
@@ -30,6 +35,9 @@ export function AppProvider({ children }) {
   // Live Assessment progress modal state
   const [assessmentModalOpen, setAssessmentModalOpen] = useState(false);
   const [assessmentProgress, setAssessmentProgress] = useState(null);
+
+  // Guard ref to prevent modal dismissal from causing a racing refreshData call right after assessment completion
+  const skipNextModalCloseRefreshRef = useRef(false);
 
   const refreshData = useCallback(async () => {
     try {
@@ -40,61 +48,81 @@ export function AppProvider({ children }) {
         setBackendStatus('DISCONNECTED');
       }
 
-      const [targetRes, surfaceRes, findingsRes, evidenceRes] = await Promise.all([
+      const [targetRes, surfaceRes, assessmentsRes, findingsRes, evidenceRes, checksRes] = await Promise.all([
         apiService.getTargetProfile().catch(() => null),
         apiService.getAttackSurface().catch(() => null),
+        apiService.getAssessments().catch(() => null),
         apiService.getFindings().catch(() => null),
-        apiService.getEvidence().catch(() => null)
+        apiService.getEvidence().catch(() => null),
+        apiService.getSecurityChecks().catch(() => null)
       ]);
 
       if (targetRes?.success) setTargetProfile(targetRes.profile);
       if (surfaceRes?.success) setAttackSurface(surfaceRes.surface);
-      if (findingsRes?.success) setFindings(findingsRes.findings || []);
-      if (evidenceRes?.success) setEvidenceList(evidenceRes.evidence || []);
 
-      // Generate default assessment entry if list is empty
-      if (findingsRes?.findings) {
-        const activeCount = findingsRes.findings.filter(f => f.currentCondition === 'OBSERVED').length;
-        setAssessments([
-          {
-            id: 'WM-2026-REAL',
-            targetName: 'World Monitor',
-            targetUrl: 'C:\\Users\\HP\\worldmonitor',
-            environment: 'Authorized Local Sandbox',
-            status: 'COMPLETED',
-            authorizedBy: 'Security Analyst',
-            authorizationConfirmed: true,
-            createdAt: new Date().toISOString(),
-            completedAt: new Date().toISOString(),
-            riskIndex: activeCount > 0 ? 85 : 0,
-            riskRating: activeCount > 0 ? 'High' : 'Clean',
-            totalFindingsCount: findingsRes.findings.length,
-            validatedCount: findingsRes.findings.filter(f => f.validation?.status === 'CONFIRMED').length,
-            verifiedCount: findingsRes.findings.filter(f => f.status === 'VERIFIED').length,
-            retestCount: findingsRes.findings.filter(f => f.status === 'READY_FOR_RETEST' || f.status === 'VERIFIED' || f.status === 'REOPENED').length,
-            scopes: [
-              'Authentication',
-              'Authorization',
-              'Session Management',
-              'API Security',
-              'Input Validation',
-              'Client Security',
-              'Secure Communication',
-              'Data Protection'
-            ]
-          }
-        ]);
+      if (assessmentsRes?.success) {
+        const incomingAssessments = assessmentsRes.assessments || [];
+        setAssessments(prev => {
+          const incomingIds = new Set(incomingAssessments.map(a => a.id));
+          const missingLocal = Array.isArray(prev)
+            ? prev.filter(a => a && a.id && !incomingIds.has(a.id))
+            : [];
+          if (missingLocal.length === 0) return incomingAssessments;
+          return [...missingLocal, ...incomingAssessments];
+        });
+      }
+
+      if (findingsRes?.success) {
+        const incomingFindings = findingsRes.findings || [];
+        setFindings(prev => {
+          const incomingIds = new Set(incomingFindings.map(f => f.id));
+          const missingLocal = Array.isArray(prev)
+            ? prev.filter(f => f && f.id && !incomingIds.has(f.id))
+            : [];
+          if (missingLocal.length === 0) return incomingFindings;
+          return [...missingLocal, ...incomingFindings];
+        });
+      }
+
+      if (evidenceRes?.success) {
+        const incomingEvidence = evidenceRes.evidence || [];
+        setEvidenceList(prev => {
+          const incomingIds = new Set(incomingEvidence.map(e => e.id));
+          const missingLocal = Array.isArray(prev)
+            ? prev.filter(e => e && e.id && !incomingIds.has(e.id))
+            : [];
+          if (missingLocal.length === 0) return incomingEvidence;
+          return [...missingLocal, ...incomingEvidence];
+        });
+      }
+
+      if (checksRes?.success) {
+        setSecurityChecks(checksRes.checks || []);
+        setAvailableScopes(checksRes.scopes || Object.keys(checksRes.scopeMap || {}));
+        setScopeMap(checksRes.scopeMap || {});
+        setLoadingSecurityChecks(false);
+        setSecurityChecksError(null);
+      } else {
+        setLoadingSecurityChecks(false);
+        setSecurityChecksError(checksRes?.error || { message: 'Failed to load security checks from backend' });
       }
     } catch (err) {
       console.error('Failed to sync backend state:', err);
+      setLoadingSecurityChecks(false);
+      setSecurityChecksError({ message: err.message });
     }
   }, []);
 
   useEffect(() => {
-    refreshData();
+    if (assessmentModalOpen) return;
+    if (skipNextModalCloseRefreshRef.current) {
+      skipNextModalCloseRefreshRef.current = false;
+    } else {
+      refreshData();
+    }
     const interval = setInterval(refreshData, 10000);
     return () => clearInterval(interval);
-  }, [refreshData]);
+  }, [refreshData, assessmentModalOpen]);
 
   const showToast = (message, type = 'info') => {
     setToast({ message, type, id: Date.now() });
@@ -103,32 +131,99 @@ export function AppProvider({ children }) {
     }, 4000);
   };
 
-  const triggerAssessment = async (targetName = 'World Monitor', scopes = []) => {
+  const triggerAssessment = async (targetName = 'World Monitor', scopes = [], checkIds = []) => {
     setAssessmentModalOpen(true);
-    setAssessmentProgress({ stepName: 'INITIALIZING', progressPercent: 10 });
+    setAssessmentProgress({
+      currentStep: 1,
+      totalSteps: 4,
+      operation: 'INITIALIZING TARGET ASSESSMENT',
+      stepName: 'INITIALIZING TARGET ASSESSMENT',
+      progressPercent: 10,
+      completedSteps: [],
+      isFinished: false
+    });
     showToast('Initializing target assessment against World Monitor...', 'info');
 
     try {
-      setAssessmentProgress({ stepName: 'PROFILING TARGET REPOSITORY', progressPercent: 30 });
+      setAssessmentProgress(prev => ({
+        ...prev,
+        currentStep: 2,
+        operation: 'PROFILING TARGET REPOSITORY',
+        stepName: 'PROFILING TARGET REPOSITORY',
+        progressPercent: 30,
+        completedSteps: ['INITIALIZING TARGET ASSESSMENT']
+      }));
       await new Promise(r => setTimeout(r, 400));
 
-      setAssessmentProgress({ stepName: 'SCANNING SOURCE FILES & AST NODES', progressPercent: 60 });
-      const res = await apiService.startAssessment(targetName, scopes);
+      setAssessmentProgress(prev => ({
+        ...prev,
+        currentStep: 3,
+        operation: 'SCANNING SOURCE FILES & AST NODES',
+        stepName: 'SCANNING SOURCE FILES & AST NODES',
+        progressPercent: 60,
+        completedSteps: ['INITIALIZING TARGET ASSESSMENT', 'PROFILING TARGET REPOSITORY']
+      }));
 
-      setAssessmentProgress({ stepName: 'ANALYZING SECURITY FINDINGS & AI EVIDENCE', progressPercent: 90 });
+      const res = await apiService.startAssessment(targetName, scopes, checkIds);
+
+      setAssessmentProgress(prev => ({
+        ...prev,
+        currentStep: 4,
+        operation: 'ANALYZING SECURITY FINDINGS & AI EVIDENCE',
+        stepName: 'ANALYZING SECURITY FINDINGS & AI EVIDENCE',
+        progressPercent: 90,
+        completedSteps: ['INITIALIZING TARGET ASSESSMENT', 'PROFILING TARGET REPOSITORY', 'SCANNING SOURCE FILES & AST NODES']
+      }));
       await new Promise(r => setTimeout(r, 400));
 
-      if (res.success) {
-        setLatestScanResultState(res.scanResult);
-        setActiveAssessmentId(res.assessmentId);
-        await refreshData();
-        setAssessmentProgress({ stepName: 'COMPLETED', progressPercent: 100, isFinished: true });
+      const resolvedId = res?.assessmentId || res?.assessment?.id;
+
+      if (res?.success && resolvedId) {
+        skipNextModalCloseRefreshRef.current = true;
+        setLatestScanResultState(res.scanResult || null);
+        setActiveAssessmentId(resolvedId);
+
+        if (res.assessment) {
+          setAssessments(prev => [
+            res.assessment,
+            ...(Array.isArray(prev) ? prev.filter(a => a && a.id !== res.assessment.id) : [])
+          ]);
+        }
+
+        setAssessmentProgress(prev => ({
+          ...prev,
+          operation: 'COMPLETED',
+          stepName: 'COMPLETED',
+          progressPercent: 100,
+          completedSteps: [
+            'INITIALIZING TARGET ASSESSMENT',
+            'PROFILING TARGET REPOSITORY',
+            'SCANNING SOURCE FILES & AST NODES',
+            'ANALYZING SECURITY FINDINGS & AI EVIDENCE'
+          ],
+          isFinished: true
+        }));
+
         showToast(`Assessment completed successfully against C:\\Users\\HP\\worldmonitor.`, 'success');
+
+        // Trigger background data sync without blocking navigation
+        refreshData().catch(err => console.error('Background refresh error:', err));
+
+        return {
+          ...res,
+          success: true,
+          assessmentId: resolvedId
+        };
       } else {
-        showToast(`Assessment failed: ${res.error?.message}`, 'error');
+        showToast(`Assessment failed: ${res?.error?.message || 'Invalid assessment response from backend'}`, 'error');
+        return {
+          ...res,
+          success: false
+        };
       }
     } catch (err) {
       showToast(`Assessment failed: ${err.message}`, 'error');
+      return { success: false, error: { message: err.message } };
     } finally {
       setTimeout(() => {
         setAssessmentModalOpen(false);
@@ -252,6 +347,19 @@ export function AppProvider({ children }) {
     showToast('Current scan result cleared from view.', 'info');
   };
 
+  const resetDemo = async () => {
+    try {
+      const res = await apiService.resetDemo();
+      if (res.success) {
+        setLatestScanResultState(null);
+        await refreshData();
+        showToast('Backend persistent store reset to baseline state.', 'info');
+      }
+    } catch (err) {
+      showToast(`Reset failed: ${err.message}`, 'error');
+    }
+  };
+
   const activeAssessment = assessments.find(a => a.id === activeAssessmentId) || assessments[0] || null;
 
   return (
@@ -271,6 +379,11 @@ export function AppProvider({ children }) {
         findings,
         evidenceList,
         auditLogs,
+        securityChecks,
+        availableScopes,
+        scopeMap,
+        loadingSecurityChecks,
+        securityChecksError,
         toast,
         showToast,
         backendStatus,
@@ -278,6 +391,7 @@ export function AppProvider({ children }) {
         runRealCheck,
         latestScanResult,
         clearLatestScan,
+        resetDemo,
         assessmentModalOpen,
         setAssessmentModalOpen,
         assessmentProgress,

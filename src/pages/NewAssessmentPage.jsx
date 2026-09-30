@@ -5,38 +5,50 @@ import { useApp } from '../context/AppContext';
 
 export default function NewAssessmentPage() {
   const navigate = useNavigate();
-  const { triggerAssessment } = useApp();
+  const {
+    triggerAssessment,
+    availableScopes,
+    scopeMap,
+    loadingSecurityChecks,
+    securityChecksError
+  } = useApp();
 
   const [currentStep, setCurrentStep] = useState(1);
   const [targetName, setTargetName] = useState('World Monitor');
   const [environment] = useState('Authorized Local Sandbox');
   const [isAuthorized, setIsAuthorized] = useState(true);
 
-  const availableScopes = [
-    'Authentication',
-    'Authorization',
-    'Session Management',
-    'API Security',
-    'Input Validation',
-    'Client Security',
-    'Secure Communication',
-    'Data Protection'
-  ];
+  const [selectedScopes, setSelectedScopes] = useState([]);
+  const [hasInitializedScopes, setHasInitializedScopes] = useState(false);
 
-  const [selectedScopes, setSelectedScopes] = useState([...availableScopes]);
+  React.useEffect(() => {
+    if (availableScopes && availableScopes.length > 0 && !hasInitializedScopes) {
+      setSelectedScopes([...availableScopes]);
+      setHasInitializedScopes(true);
+    }
+  }, [availableScopes, hasInitializedScopes]);
 
   const toggleScope = (scope) => {
-    if (selectedScopes.includes(scope)) {
-      setSelectedScopes(selectedScopes.filter(s => s !== scope));
+    const current = selectedScopes || [];
+    if (current.includes(scope)) {
+      setSelectedScopes(current.filter(s => s !== scope));
     } else {
-      setSelectedScopes([...selectedScopes, scope]);
+      setSelectedScopes([...current, scope]);
     }
   };
 
   const handleStartAssessment = async () => {
-    if (!isAuthorized) return;
-    await triggerAssessment(targetName, selectedScopes);
-    navigate('/dashboard');
+    if (!isAuthorized || selectedScopes.length === 0) return;
+    const checkIds = [];
+    selectedScopes.forEach(sc => {
+      const mapped = scopeMap ? scopeMap[sc] : null;
+      if (mapped) checkIds.push(...mapped);
+    });
+    const res = await triggerAssessment(targetName, selectedScopes, checkIds);
+    const targetAssessmentId = res?.assessmentId || res?.assessment?.id;
+    if (res?.success && targetAssessmentId) {
+      navigate(`/assessments/${targetAssessmentId}`);
+    }
   };
 
   return (
@@ -197,25 +209,31 @@ export default function NewAssessmentPage() {
               Step 3: Define Assessment Scope
             </h2>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {availableScopes.map((scope, idx) => {
-                const isSelected = selectedScopes.includes(scope);
-                return (
-                  <div
-                    key={idx}
-                    onClick={() => toggleScope(scope)}
-                    className={`p-3.5 rounded-md border text-xs font-bold cursor-pointer transition-all flex items-center justify-between ${
-                      isSelected
-                        ? 'bg-[#E6F4F1] border-[#087F5B] text-[#064E3B]'
-                        : 'bg-[#F7F8F5] border-[#DDE5DF] text-[#64746A] hover:bg-white'
-                    }`}
-                  >
-                    <span>{scope}</span>
-                    {isSelected ? <CheckSquare className="w-4 h-4 text-[#087F5B]" /> : <Square className="w-4 h-4 text-[#64746A]" />}
-                  </div>
-                );
-              })}
-            </div>
+            {loadingSecurityChecks ? (
+              <div className="p-4 text-xs text-[#64746A] font-semibold">Loading security check definitions from backend...</div>
+            ) : securityChecksError ? (
+              <div className="p-4 text-xs text-red-600 font-semibold">Failed to load security check definitions: {securityChecksError.message || 'Server error'}</div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {(Array.isArray(availableScopes) ? availableScopes : []).map((scope, idx) => {
+                  const isSelected = (Array.isArray(selectedScopes) ? selectedScopes : []).includes(scope);
+                  return (
+                    <div
+                      key={idx}
+                      onClick={() => toggleScope(scope)}
+                      className={`p-3.5 rounded-md border text-xs font-bold cursor-pointer transition-all flex items-center justify-between ${
+                        isSelected
+                          ? 'bg-[#E6F4F1] border-[#087F5B] text-[#064E3B]'
+                          : 'bg-[#F7F8F5] border-[#DDE5DF] text-[#64746A] hover:bg-white'
+                      }`}
+                    >
+                      <span>{scope}</span>
+                      {isSelected ? <CheckSquare className="w-4 h-4 text-[#087F5B]" /> : <Square className="w-4 h-4 text-[#64746A]" />}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             <div className="flex justify-between pt-2">
               <button
@@ -226,7 +244,7 @@ export default function NewAssessmentPage() {
               </button>
               <button
                 onClick={() => setCurrentStep(4)}
-                disabled={selectedScopes.length === 0}
+                disabled={!selectedScopes || selectedScopes.length === 0}
                 className="bg-[#087F5B] hover:bg-[#064E3B] text-white px-5 py-2 rounded-md text-xs font-bold flex items-center space-x-2 cursor-pointer shadow-sm"
               >
                 <span>Review Scope</span>
@@ -257,9 +275,9 @@ export default function NewAssessmentPage() {
                 <span className="font-bold text-[#087F5B]">Confirmed</span>
               </div>
               <div className="py-1">
-                <span className="text-[#64746A] block mb-2 font-bold">Selected Scope Categories ({selectedScopes.length}):</span>
+                <span className="text-[#64746A] block mb-2 font-bold">Selected Scope Categories ({selectedScopes?.length || 0}):</span>
                 <div className="flex flex-wrap gap-1.5">
-                  {selectedScopes.map((sc, i) => (
+                  {(Array.isArray(selectedScopes) ? selectedScopes : []).map((sc, i) => (
                     <span key={i} className="bg-white border border-[#DDE5DF] px-2.5 py-1 rounded-md text-[11px] font-bold text-[#087F5B]">
                       {sc}
                     </span>
