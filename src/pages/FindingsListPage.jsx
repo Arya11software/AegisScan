@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShieldAlert, Filter, ArrowRight, CheckCircle2, AlertTriangle, ShieldCheck, Search, Flame } from 'lucide-react';
+import { ShieldAlert, Filter, ArrowRight, CheckCircle2, AlertTriangle, ShieldCheck, Search, Flame, Sparkles } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 export default function FindingsListPage() {
@@ -13,7 +13,11 @@ export default function FindingsListPage() {
 
   const filteredFindings = findings.filter(f => {
     if (severityFilter !== 'ALL' && f.severity !== severityFilter) return false;
-    if (statusFilter !== 'ALL' && f.status !== statusFilter) return false;
+    if (statusFilter !== 'ALL') {
+      const s = (f.status || '').toUpperCase();
+      const targetS = statusFilter.toUpperCase();
+      if (s !== targetS && !s.includes(targetS)) return false;
+    }
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       return f.title.toLowerCase().includes(q) || f.id.toLowerCase().includes(q) || f.category.toLowerCase().includes(q);
@@ -112,6 +116,7 @@ export default function FindingsListPage() {
               className="bg-[#F7F8F5] border border-[#DDE5DF] text-[#17211B] text-xs font-semibold rounded-md px-2.5 py-1.5 outline-none"
             >
               <option value="ALL">All Severities</option>
+              <option value="CRITICAL">Critical</option>
               <option value="HIGH">High</option>
               <option value="MEDIUM">Medium</option>
               <option value="LOW">Low</option>
@@ -123,13 +128,17 @@ export default function FindingsListPage() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-[#F7F8F5] border border-[#DDE5DF] text-[#17211B] text-xs font-semibold rounded-md px-2.5 py-1.5 outline-none"
+              className="bg-[#F7F8F5] border border-[#DDE5DF] text-[#17211B] text-xs font-semibold rounded-md px-2.5 py-1.5 outline-none cursor-pointer"
             >
               <option value="ALL">All Statuses</option>
-              <option value="POTENTIAL">Potential</option>
-              <option value="CONFIRMED">Confirmed</option>
-              <option value="REMEDIATION">Remediation</option>
-              <option value="VERIFIED">Verified</option>
+              <option value="Candidate">Candidate</option>
+              <option value="Validated">Validated</option>
+              <option value="False Positive">False Positive</option>
+              <option value="Open">Open</option>
+              <option value="Remediation">Remediation</option>
+              <option value="Retest Pending">Retest Pending</option>
+              <option value="Verified">Verified</option>
+              <option value="Regression">Regression</option>
             </select>
           </div>
         </div>

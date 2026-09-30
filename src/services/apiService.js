@@ -35,6 +35,75 @@ export const apiService = {
     return res.json();
   },
 
+  // ==========================================
+  // Assessment Pipeline APIs
+  // ==========================================
+
+  async getAssessments() {
+    const res = await fetch('/api/assessments');
+    return res.json();
+  },
+
+  async createAssessment(assessmentData) {
+    const res = await fetch('/api/assessments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(assessmentData)
+    });
+    return res.json();
+  },
+
+  async getAssessment(id) {
+    const res = await fetch(`/api/assessments/${id}`);
+    return res.json();
+  },
+
+  async authorizeAssessment(id, authorizationData = {}) {
+    const res = await fetch(`/api/assessments/${id}/authorize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(authorizationData)
+    });
+    return res.json();
+  },
+
+  async discoverAssessment(id) {
+    const res = await fetch(`/api/assessments/${id}/discover`, {
+      method: 'POST'
+    });
+    return res.json();
+  },
+
+  async generateTestPlan(id) {
+    const res = await fetch(`/api/assessments/${id}/test-plan`, {
+      method: 'POST'
+    });
+    return res.json();
+  },
+
+  async executeAssessment(id) {
+    const res = await fetch(`/api/assessments/${id}/start`, {
+      method: 'POST'
+    });
+    return res.json();
+  },
+
+  async getAssessmentProgress(id) {
+    const res = await fetch(`/api/assessments/${id}/progress`);
+    return res.json();
+  },
+
+  async getAssessmentFindings(id) {
+    const res = await fetch(`/api/assessments/${id}/findings`);
+    return res.json();
+  },
+
+  async getAssessmentReport(id) {
+    const res = await fetch(`/api/assessments/${id}/report`);
+    return res.json();
+  },
+
+  // Legacy start compatibility
   async startAssessment(targetName = 'World Monitor', scopes = []) {
     const res = await fetch('/api/assessment/start', {
       method: 'POST',
@@ -44,10 +113,9 @@ export const apiService = {
     return res.json();
   },
 
-  async getAssessment(id) {
-    const res = await fetch(`/api/assessment/${id}`);
-    return res.json();
-  },
+  // ==========================================
+  // Findings, Evidence, Validation & Retest
+  // ==========================================
 
   async getFindings() {
     const res = await fetch('/api/findings');
@@ -69,29 +137,37 @@ export const apiService = {
     return res.json();
   },
 
-  async validateFinding(id, validatedBy = 'Security Analyst') {
+  async validateFinding(id, validationData = {}) {
+    const payload = typeof validationData === 'string'
+      ? { validatedBy: validationData, action: 'VALIDATE' }
+      : validationData;
+
     const res = await fetch(`/api/findings/${id}/validate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ validatedBy })
+      body: JSON.stringify(payload)
     });
     return res.json();
   },
 
-  async updateRemediation(id, { markReadyForRetest = false, recommendation = '', actor = 'Developer' }) {
+  async updateRemediation(id, { markReadyForRetest = false, recommendation = '', notes = '', actor = 'Developer' }) {
     const res = await fetch(`/api/findings/${id}/remediation`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ markReadyForRetest, recommendation, actor })
+      body: JSON.stringify({ markReadyForRetest, recommendation, notes, actor })
     });
     return res.json();
   },
 
-  async retestFinding(id, actor = 'Retest Engine') {
+  async retestFinding(id, options = {}) {
+    const payload = typeof options === 'string'
+      ? { actor: options }
+      : options;
+
     const res = await fetch(`/api/findings/${id}/retest`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ actor })
+      body: JSON.stringify(payload)
     });
     return res.json();
   },

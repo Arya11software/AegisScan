@@ -10,15 +10,17 @@ export default function RemediationPage() {
   const activeRemediations = findings;
 
   const getRemediationStatusBadge = (status) => {
-    switch (status) {
-      case 'VERIFIED':
-        return <span className="badge-emerald text-[11px] font-bold px-2.5 py-1 rounded-md">VERIFIED</span>;
-      case 'REMEDIATION':
-      case 'RETEST_PENDING':
-        return <span className="badge-amber text-[11px] font-bold px-2.5 py-1 rounded-md">READY FOR RETEST</span>;
-      default:
-        return <span className="badge-crimson text-[11px] font-bold px-2.5 py-1 rounded-md">OPEN</span>;
+    const s = (status || '').toUpperCase();
+    if (s === 'VERIFIED') {
+      return <span className="badge-emerald text-[11px] font-bold px-2.5 py-1 rounded-md">VERIFIED</span>;
     }
+    if (s.includes('RETEST') || s.includes('READY')) {
+      return <span className="badge-amber text-[11px] font-bold px-2.5 py-1 rounded-md">READY FOR RETEST</span>;
+    }
+    if (s === 'VALIDATED') {
+      return <span className="badge-amber text-[11px] font-bold px-2.5 py-1 rounded-md">VALIDATED (OPEN)</span>;
+    }
+    return <span className="badge-crimson text-[11px] font-bold px-2.5 py-1 rounded-md">OPEN ({status || 'Candidate'})</span>;
   };
 
   return (
@@ -65,12 +67,16 @@ export default function RemediationPage() {
             <div className="space-y-3">
               <div className="bg-[#F7F8F5] border border-[#DDE5DF] p-4 rounded-md space-y-1">
                 <h3 className="text-xs font-bold text-[#64746A] uppercase tracking-wider">Root Cause Analysis</h3>
-                <p className="text-xs text-[#17211B] font-mono">{item.rootCause}</p>
+                <p className="text-xs text-[#17211B] font-mono">
+                  {typeof item.remediation === 'object' ? (item.remediation?.problem || item.rootCause || 'Security control missing or misconfigured.') : (item.rootCause || 'Security control missing or misconfigured.')}
+                </p>
               </div>
 
               <div className="bg-[#E6F4F1] border border-[#B2DFDB] p-4 rounded-md space-y-1">
                 <h3 className="text-xs font-bold text-[#064E3B] uppercase tracking-wider">Recommended Remediation</h3>
-                <p className="text-xs text-[#17211B] font-semibold">{item.remediation}</p>
+                <p className="text-xs text-[#17211B] font-semibold">
+                  {typeof item.remediation === 'object' ? (item.remediation?.recommendedFix || item.remediation?.recommendation || 'Apply server-side input and authorization controls.') : (item.remediation || 'Apply server-side input and authorization controls.')}
+                </p>
               </div>
             </div>
 

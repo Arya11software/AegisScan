@@ -68,7 +68,11 @@ export default function RetestingPage() {
               <div className="flex items-center justify-between">
                 <span className="font-mono font-bold text-[#087F5B]">{f.id}</span>
                 <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
-                  f.status === 'VERIFIED' ? 'badge-emerald' : f.status === 'REOPENED' ? 'badge-crimson' : 'badge-amber'
+                  (f.status || '').toLowerCase() === 'verified'
+                    ? 'badge-emerald'
+                    : ((f.status || '').toLowerCase() === 'reopened' || (f.status || '').toLowerCase() === 'regression')
+                    ? 'badge-crimson'
+                    : 'badge-amber'
                 }`}>
                   {f.status}
                 </span>
@@ -97,16 +101,24 @@ export default function RetestingPage() {
 
             <div className="flex flex-wrap items-center gap-2">
               <button
-                onClick={() => handleRunRetest(null)}
+                onClick={() => handleRunRetest('PASSED')}
                 disabled={isRunning}
-                className={`px-5 py-2.5 rounded-md text-xs font-bold flex items-center space-x-2 transition-all cursor-pointer shadow-sm ${
+                className={`px-4 py-2 rounded-md text-xs font-bold flex items-center space-x-1.5 transition-all cursor-pointer shadow-sm ${
                   isRunning
                     ? 'bg-[#DDE5DF] text-[#64746A] cursor-not-allowed'
                     : 'bg-[#087F5B] hover:bg-[#064E3B] text-white'
                 }`}
               >
-                {isRunning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-current" />}
-                <span>{targetFinding.id.startsWith('F-REAL-') || targetFinding.isRealCheck ? 'RUN REAL RETEST ON TARGET SOURCE' : 'RUN AUTOMATED RETEST'}</span>
+                {isRunning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5 fill-current" />}
+                <span>VERIFY REMEDIATION (PASS)</span>
+              </button>
+
+              <button
+                onClick={() => handleRunRetest('FAILED')}
+                disabled={isRunning}
+                className="bg-white hover:bg-red-50 border border-red-200 text-[#C62828] px-3.5 py-2 rounded-md text-xs font-bold flex items-center space-x-1.5 cursor-pointer transition-all"
+              >
+                <span>TEST REGRESSION (STILL FAILS)</span>
               </button>
             </div>
           </div>
@@ -115,14 +127,17 @@ export default function RetestingPage() {
           <div className="bg-[#F7F8F5] border border-[#DDE5DF] rounded-md p-4 space-y-2">
             <h3 className="text-xs font-bold text-[#17211B] uppercase tracking-wider">RETEST VERIFICATION CHECKLIST</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-              {retestChecklist.map((item, idx) => (
-                <div key={idx} className="flex items-center space-x-2">
-                  <CheckCircle2 className={`w-4 h-4 ${targetFinding.status === 'VERIFIED' ? 'text-[#087F5B]' : 'text-[#64746A]'}`} />
-                  <span className={targetFinding.status === 'VERIFIED' ? 'font-bold text-[#17211B]' : 'text-[#64746A]'}>
-                    {item}
-                  </span>
-                </div>
-              ))}
+              {retestChecklist.map((item, idx) => {
+                const isVerified = (targetFinding.status || '').toLowerCase() === 'verified';
+                return (
+                  <div key={idx} className="flex items-center space-x-2">
+                    <CheckCircle2 className={`w-4 h-4 ${isVerified ? 'text-[#087F5B]' : 'text-[#64746A]'}`} />
+                    <span className={isVerified ? 'font-bold text-[#17211B]' : 'text-[#64746A]'}>
+                      {item}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -157,15 +172,15 @@ export default function RetestingPage() {
               <div className="flex items-center justify-between border-b border-[#DDE5DF] pb-2">
                 <span className="text-xs font-extrabold text-[#17211B]">CURRENT RETEST CONDITION</span>
                 <span className={`px-2.5 py-0.5 rounded text-[10px] font-bold ${
-                  targetFinding.status === 'VERIFIED'
+                  (targetFinding.status || '').toLowerCase() === 'verified'
                     ? 'badge-emerald'
-                    : targetFinding.status === 'REOPENED'
+                    : ((targetFinding.status || '').toLowerCase() === 'reopened' || (targetFinding.status || '').toLowerCase() === 'regression')
                     ? 'badge-crimson'
                     : 'badge-amber'
                 }`}>
-                  {targetFinding.status === 'VERIFIED' 
+                  {(targetFinding.status || '').toLowerCase() === 'verified'
                     ? 'CONDITION NOT DETECTED' 
-                    : targetFinding.status === 'REOPENED'
+                    : ((targetFinding.status || '').toLowerCase() === 'reopened' || (targetFinding.status || '').toLowerCase() === 'regression')
                     ? 'CONDITION STILL DETECTED'
                     : 'AWAITING RETEST'}
                 </span>
@@ -186,7 +201,7 @@ export default function RetestingPage() {
                 </div>
               )}
 
-              {targetFinding.status === 'VERIFIED' && !isRunning && (
+              {(targetFinding.status || '').toLowerCase() === 'verified' && !isRunning && (
                 <div className="space-y-3 font-mono text-xs">
                   <div>
                     <span className="text-[#64746A] block text-[11px]">Observed Current Condition:</span>

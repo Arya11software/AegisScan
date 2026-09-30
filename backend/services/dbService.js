@@ -162,5 +162,23 @@ export const dbService = {
     store.auditLogs.unshift(logItem);
     this.write(store);
     return logItem;
+  },
+
+  getFindingsByAssessment(assessmentId) {
+    return this.getFindings().filter(f => f.assessmentId === assessmentId);
+  },
+
+  getRetests(findingId) {
+    const store = this.read();
+    const list = store.retests || [];
+    return findingId ? list.filter(r => r.findingId === findingId) : list;
+  },
+
+  saveRetest(retestRecord) {
+    const store = this.read();
+    if (!store.retests) store.retests = [];
+    store.retests.unshift(retestRecord);
+    this.write(store);
+    return retestRecord;
   }
 };

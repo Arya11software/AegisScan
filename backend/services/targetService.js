@@ -1,19 +1,35 @@
+import fs from 'fs';
 import path from 'path';
 
-const AUTHORIZED_TARGET_ROOT = path.resolve('C:/Users/HP/worldmonitor');
+let customTargetRoot = null;
 
 export const targetService = {
   getAuthorizedRoot() {
-    return AUTHORIZED_TARGET_ROOT;
+    if (customTargetRoot && fs.existsSync(customTargetRoot)) {
+      return customTargetRoot;
+    }
+    const hpPath = path.resolve('C:/Users/HP/worldmonitor');
+    if (fs.existsSync(hpPath)) {
+      return hpPath;
+    }
+    // Fallback to current project root as authorized sandbox
+    return path.resolve('.');
+  },
+
+  setAuthorizedRoot(newPath) {
+    if (newPath) {
+      customTargetRoot = path.resolve(newPath);
+    }
   },
 
   validateAndResolvePath(relativePath = '') {
-    const resolvedPath = path.resolve(AUTHORIZED_TARGET_ROOT, relativePath);
+    const root = this.getAuthorizedRoot();
+    const resolvedPath = path.resolve(root, relativePath);
 
-    // Guardrail: Strict path traversal prevention
-    const relativeToRoot = path.relative(AUTHORIZED_TARGET_ROOT, resolvedPath);
-    if (relativeToRoot.startsWith('..') || path.isAbsolute(relativeToRoot) && relativeToRoot !== '') {
-      throw new Error('Security Boundary Violation: Requested target path is outside the authorized World Monitor root.');
+    // Strict path traversal prevention
+    const relativeToRoot = path.relative(root, resolvedPath);
+    if (relativeToRoot.startsWith('..') || (path.isAbsolute(relativeToRoot) && relativeToRoot !== '')) {
+      throw new Error('Security Boundary Violation: Requested target path is outside the authorized target root.');
     }
 
     return resolvedPath;

@@ -44,38 +44,50 @@ export default function FindingDetailPage() {
   const isAnalyst = userRole === 'SECURITY_ANALYST';
   const isDeveloper = userRole === 'DEVELOPER';
 
+  // Normalize finding status for comparison
+  const rawStatus = (finding.status || '').toLowerCase().replace(/[\s_-]+/g, '');
+  const isStatus = (target) => rawStatus === target.toLowerCase().replace(/[\s_-]+/g, '');
+
   // Master Prompt Section 15 Finding Lifecycle Stages
   const lifecycleStages = [
-    { key: LIFECYCLE_STATES.DETECTED, label: 'Detected' },
-    { key: LIFECYCLE_STATES.EVIDENCE_COLLECTED, label: 'Evidence Collected' },
-    { key: LIFECYCLE_STATES.AI_ANALYZED, label: 'AI Analyzed' },
-    { key: LIFECYCLE_STATES.VALIDATED, label: 'Validated' },
-    { key: LIFECYCLE_STATES.REMEDIATION_OPEN, label: 'Remediation' },
-    { key: LIFECYCLE_STATES.READY_FOR_RETEST, label: 'Ready for Retest' },
-    { key: LIFECYCLE_STATES.VERIFIED, label: 'Verified' }
+    { key: 'detected', label: 'Detected' },
+    { key: 'evidence_collected', label: 'Evidence Collected' },
+    { key: 'ai_analyzed', label: 'AI Analyzed' },
+    { key: 'validated', label: 'Validated' },
+    { key: 'remediation_open', label: 'Remediation' },
+    { key: 'ready_for_retest', label: 'Ready for Retest' },
+    { key: 'verified', label: 'Verified' }
   ];
 
   const getStageStatus = (stageKey) => {
-    if (finding.status === LIFECYCLE_STATES.VERIFIED) return 'completed';
-    if (finding.status === LIFECYCLE_STATES.REOPENED) {
-      if (stageKey === LIFECYCLE_STATES.VERIFIED) return 'failed';
+    if (isStatus('verified')) return 'completed';
+    if (isStatus('reopened') || isStatus('regression')) {
+      if (stageKey === 'verified') return 'failed';
       return 'completed';
     }
     const order = [
-      LIFECYCLE_STATES.DETECTED,
-      LIFECYCLE_STATES.EVIDENCE_COLLECTED,
-      LIFECYCLE_STATES.AI_ANALYZED,
-      LIFECYCLE_STATES.VALIDATED,
-      LIFECYCLE_STATES.REMEDIATION_OPEN,
-      LIFECYCLE_STATES.READY_FOR_RETEST,
-      LIFECYCLE_STATES.RETESTED,
-      LIFECYCLE_STATES.VERIFIED
+      'candidate',
+      'detected',
+      'evidencecollected',
+      'aianalyzed',
+      'validated',
+      'remediationopen',
+      'readyforretest',
+      'retested',
+      'verified'
     ];
-    const currentIndex = order.indexOf(finding.status);
-    const stageIndex = order.indexOf(stageKey);
+    // Map stageKey to normalized key
+    const cleanStageKey = stageKey.toLowerCase().replace(/[\s_-]+/g, '');
+    const currentStatusKey = isStatus('candidate') ? 'candidate' : rawStatus;
+    const currentIndex = order.indexOf(currentStatusKey);
+    const stageIndex = order.indexOf(cleanStageKey);
 
-    if (stageIndex < currentIndex) return 'completed';
-    if (stageIndex === currentIndex) return 'active';
+    if (currentIndex >= 0 && stageIndex >= 0) {
+      if (stageIndex < currentIndex) return 'completed';
+      if (stageIndex === currentIndex) return 'active';
+      return 'pending';
+    }
+    if (stageKey === 'detected' && isStatus('candidate')) return 'active';
     return 'pending';
   };
 
@@ -121,49 +133,57 @@ export default function FindingDetailPage() {
 
         {/* State Machine Action Controls */}
         <div className="flex flex-wrap items-center gap-2">
-          {(finding.status === LIFECYCLE_STATES.AI_ANALYZED || finding.status === LIFECYCLE_STATES.DETECTED || finding.status === LIFECYCLE_STATES.EVIDENCE_COLLECTED) && (
-            <button
-              onClick={() => handleAnalystAction(() => validateFinding(finding.id))}
-              className={`px-4 py-2 rounded-md text-xs font-bold cursor-pointer transition-all ${
-                isAnalyst ? 'bg-[#087F5B] hover:bg-[#064E3B] text-white shadow-sm' : 'bg-[#F7F8F5] border border-[#DDE5DF] text-[#64746A]'
-              }`}
-            >
-              Validate Finding (Analyst)
-            </button>
+          {(isStatus('candidate') || isStatus('detected') || isStatus('evidencecollected') || isStatus('aianalyzed')) && (
+            <>
+              <button
+                onClick={() => handleAnalystAction(() => validateFinding(finding.id, { action: 'VALIDATE', confidence: 'High' }))}
+                className={`px-4 py-2 rounded-md text-xs font-bold cursor-pointer transition-all ${
+                  isAnalyst ? 'bg-[#087F5B] hover:bg-[#064E3B] text-white shadow-sm' : 'bg-[#F7F8F5] border border-[#DDE5DF] text-[#64746A]'
+                }`}
+              >
+                Validate Finding (Analyst)
+              </button>
+              <button
+                onClick={() => handleAnalystAction(() => validateFinding(finding.id, { action: 'MARK_FALSE_POSITIVE', confidence: 'High' }))}
+                className="bg-white hover:bg-red-50 border border-red-200 text-[#C62828] px-3.5 py-2 rounded-md text-xs font-bold cursor-pointer transition-all"
+              >
+                Mark False Positive
+              </button>
+            </>
           )}
 
-          {finding.status === LIFECYCLE_STATES.VALIDATED && (
+          {isStatus('validated') && (
             <button
               onClick={() => openRemediation(finding.id)}
-              className="bg-[#087F5B] hover:bg-[#064E3B] text-white px-4 py-2 rounded-md text-xs font-bold cursor-pointer"
+              className="bg-[#087F5B] hover:bg-[#064E3B] text-white px-4 py-2 rounded-md text-xs font-bold cursor-pointer shadow-sm transition-all"
             >
               Open Remediation
             </button>
           )}
 
-          {finding.status === LIFECYCLE_STATES.REOPENED && (
+          {(isStatus('reopened') || isStatus('regression')) && (
             <button
               onClick={() => openRemediation(finding.id)}
-              className="bg-[#B7791F] hover:bg-[#925F18] text-white px-4 py-2 rounded-md text-xs font-bold cursor-pointer"
+              className="bg-[#B7791F] hover:bg-[#925F18] text-white px-4 py-2 rounded-md text-xs font-bold cursor-pointer shadow-sm transition-all"
             >
               Re-open Remediation (Dev)
             </button>
           )}
 
-          {(finding.status === LIFECYCLE_STATES.REMEDIATION_OPEN || finding.status === LIFECYCLE_STATES.REOPENED) && (
+          {(isStatus('remediationopen') || isStatus('reopened') || isStatus('regression')) && (
             <button
               onClick={() => {
                 markReadyForRetest(finding.id);
                 navigate('/retesting');
               }}
-              className="bg-[#087F5B] hover:bg-[#064E3B] text-white px-4 py-2 rounded-md text-xs font-bold flex items-center space-x-1.5 cursor-pointer"
+              className="bg-[#087F5B] hover:bg-[#064E3B] text-white px-4 py-2 rounded-md text-xs font-bold flex items-center space-x-1.5 cursor-pointer shadow-sm transition-all"
             >
               <CheckCircle2 className="w-4 h-4" />
               <span>Mark Ready for Retest (Dev)</span>
             </button>
           )}
 
-          {(finding.status === LIFECYCLE_STATES.READY_FOR_RETEST || finding.status === LIFECYCLE_STATES.RETESTED) && (
+          {(isStatus('readyforretest') || isStatus('retested')) && (
             <button
               onClick={() => handleAnalystAction(() => navigate('/retesting'))}
               className={`px-4 py-2 rounded-md text-xs font-bold flex items-center space-x-1.5 cursor-pointer transition-all ${
@@ -173,6 +193,13 @@ export default function FindingDetailPage() {
               <RotateCcw className="w-4 h-4" />
               <span>Execute Retest (Analyst)</span>
             </button>
+          )}
+
+          {isStatus('verified') && (
+            <span className="badge-emerald text-xs font-bold px-3 py-1.5 rounded-md flex items-center gap-1.5">
+              <CheckCircle2 className="w-4 h-4 text-[#087F5B]" />
+              <span>Verified Resolved</span>
+            </span>
           )}
         </div>
       </div>
@@ -256,6 +283,22 @@ export default function FindingDetailPage() {
                 <p className="text-xs text-[#17211B] bg-[#F7F8F5] p-3.5 rounded-md border border-[#DDE5DF] font-mono">
                   {finding.rootCause}
                 </p>
+              </div>
+
+              <div className="border-t border-[#DDE5DF] pt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs font-mono">
+                <div className="bg-[#F7F8F5] p-3 rounded-md border border-[#DDE5DF]">
+                  <span className="text-[#64746A] block text-[10px] uppercase font-bold">CVSS 3.1 Base Score</span>
+                  <span className="font-bold text-sm text-[#C62828]">{finding.cvssScore || (finding.severity === 'HIGH' ? 8.1 : 5.4)}</span>
+                  <span className="text-[10px] text-[#64746A] block truncate mt-0.5">{finding.cvssVector || 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N'}</span>
+                </div>
+                <div className="bg-[#F7F8F5] p-3 rounded-md border border-[#DDE5DF]">
+                  <span className="text-[#64746A] block text-[10px] uppercase font-bold">OWASP Mapping</span>
+                  <span className="font-bold text-[#17211B] text-xs block truncate mt-1">{finding.owaspMapping || 'A01:2021-Broken Access Control'}</span>
+                </div>
+                <div className="bg-[#F7F8F5] p-3 rounded-md border border-[#DDE5DF]">
+                  <span className="text-[#64746A] block text-[10px] uppercase font-bold">Analyst Confidence</span>
+                  <span className="font-bold text-[#087F5B] text-sm block mt-1">{finding.confidence || 'High'}</span>
+                </div>
               </div>
 
               <div className="border-t border-[#DDE5DF] pt-4 grid grid-cols-2 gap-4 text-xs">

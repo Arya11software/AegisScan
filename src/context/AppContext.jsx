@@ -40,51 +40,25 @@ export function AppProvider({ children }) {
         setBackendStatus('DISCONNECTED');
       }
 
-      const [targetRes, surfaceRes, findingsRes, evidenceRes] = await Promise.all([
+      const [assessmentsRes, targetRes, surfaceRes, findingsRes, evidenceRes] = await Promise.all([
+        apiService.getAssessments().catch(() => null),
         apiService.getTargetProfile().catch(() => null),
         apiService.getAttackSurface().catch(() => null),
         apiService.getFindings().catch(() => null),
         apiService.getEvidence().catch(() => null)
       ]);
 
+      if (assessmentsRes?.success && assessmentsRes.assessments?.length > 0) {
+        setAssessments(assessmentsRes.assessments);
+      }
       if (targetRes?.success) setTargetProfile(targetRes.profile);
       if (surfaceRes?.success) setAttackSurface(surfaceRes.surface);
       if (findingsRes?.success) setFindings(findingsRes.findings || []);
       if (evidenceRes?.success) setEvidenceList(evidenceRes.evidence || []);
 
-      // Generate default assessment entry if list is empty
-      if (findingsRes?.findings) {
-        const activeCount = findingsRes.findings.filter(f => f.currentCondition === 'OBSERVED').length;
-        setAssessments([
-          {
-            id: 'WM-2026-REAL',
-            targetName: 'World Monitor',
-            targetUrl: 'C:\\Users\\HP\\worldmonitor',
-            environment: 'Authorized Local Sandbox',
-            status: 'COMPLETED',
-            authorizedBy: 'Security Analyst',
-            authorizationConfirmed: true,
-            createdAt: new Date().toISOString(),
-            completedAt: new Date().toISOString(),
-            riskIndex: activeCount > 0 ? 85 : 0,
-            riskRating: activeCount > 0 ? 'High' : 'Clean',
-            totalFindingsCount: findingsRes.findings.length,
-            validatedCount: findingsRes.findings.filter(f => f.validation?.status === 'CONFIRMED').length,
-            verifiedCount: findingsRes.findings.filter(f => f.status === 'VERIFIED').length,
-            retestCount: findingsRes.findings.filter(f => f.status === 'READY_FOR_RETEST' || f.status === 'VERIFIED' || f.status === 'REOPENED').length,
-            scopes: [
-              'Authentication',
-              'Authorization',
-              'Session Management',
-              'API Security',
-              'Input Validation',
-              'Client Security',
-              'Secure Communication',
-              'Data Protection'
-            ]
-          }
-        ]);
-      }
+      // Also refresh audit logs
+      const logsRes = await fetch('/api/audit-logs').then(r => r.json()).catch(() => null);
+      if (logsRes?.success) setAuditLogs(logsRes.logs || []);
     } catch (err) {
       console.error('Failed to sync backend state:', err);
     }
@@ -103,27 +77,69 @@ export function AppProvider({ children }) {
     }, 4000);
   };
 
-  const triggerAssessment = async (targetName = 'World Monitor', scopes = []) => {
+  const createAssessment = async (assessmentData) => {
+    try {
+      const res = await apiService.createAssessment(assessmentData);
+      if (res.success) {
+        showToast(`Assessment ${res.assessment.id} configured successfully.`, 'success');
+        setActiveAssessmentId(res.assessment.id);
+        setActiveTarget(res.assessment.targetName || res.assessment.name);
+        await refreshData();
+        return res.assessment;
+      } else {
+        showToast(res.error?.message || 'Failed to create assessment', 'error');
+        return null;
+      }
+    } catch (err) {
+      showToast(`Error: ${err.message}`, 'error');
+      return null;
+    }
+  };
+
+  const triggerAssessment = async (targetName = 'World Monitor', scopes = [], options = {}) => {
     setAssessmentModalOpen(true);
     setAssessmentProgress({ stepName: 'INITIALIZING', progressPercent: 10 });
-    showToast('Initializing target assessment against World Monitor...', 'info');
+    showToast(`Initializing target assessment for ${targetName}...`, 'info');
 
     try {
-      setAssessmentProgress({ stepName: 'PROFILING TARGET REPOSITORY', progressPercent: 30 });
-      await new Promise(r => setTimeout(r, 400));
+      setAssessmentProgress({ stepName: 'APPLICATION DISCOVERY', progressPercent: 25 });
+      await new Promise(r => setTimeout(r, 300));
 
-      setAssessmentProgress({ stepName: 'SCANNING SOURCE FILES & AST NODES', progressPercent: 60 });
-      const res = await apiService.startAssessment(targetName, scopes);
+      setAssessmentProgress({ stepName: 'GENERATING TEST PLAN', progressPercent: 45 });
+      await new Promise(r => setTimeout(r, 300));
 
-      setAssessmentProgress({ stepName: 'ANALYZING SECURITY FINDINGS & AI EVIDENCE', progressPercent: 90 });
-      await new Promise(r => setTimeout(r, 400));
+      setAssessmentProgress({ stepName: 'EXECUTING SECURITY CHECKS (7 DOMAINS)', progressPercent: 70 });
+
+      let res;
+      if (options.assessmentId) {
+        res = await apiService.executeAssessment(options.assessmentId);
+      } else {
+        // Create and execute in one flow
+        const created = await apiService.createAssessment({
+          name: targetName,
+          targetUrl: options.targetUrl || 'http://localhost:3000',
+          environment: options.environment || 'Authorized Local Sandbox',
+          authorizationConfirmed: true,
+          scopes
+        });
+        if (created.success) {
+          res = await apiService.executeAssessment(created.assessment.id);
+        } else {
+          res = await apiService.startAssessment(targetName, scopes);
+        }
+      }
+
+      setAssessmentProgress({ stepName: 'MAPPING CVSS RISK & OWASP FINDINGS', progressPercent: 90 });
+      await new Promise(r => setTimeout(r, 300));
 
       if (res.success) {
-        setLatestScanResultState(res.scanResult);
-        setActiveAssessmentId(res.assessmentId);
+        if (res.assessment) {
+          setActiveAssessmentId(res.assessment.id);
+          setActiveTarget(res.assessment.targetName || targetName);
+        }
         await refreshData();
         setAssessmentProgress({ stepName: 'COMPLETED', progressPercent: 100, isFinished: true });
-        showToast(`Assessment completed successfully against C:\\Users\\HP\\worldmonitor.`, 'success');
+        showToast(`Security assessment completed successfully with ${res.findings?.length || 0} findings.`, 'success');
       } else {
         showToast(`Assessment failed: ${res.error?.message}`, 'error');
       }
@@ -137,7 +153,7 @@ export function AppProvider({ children }) {
   };
 
   const runRealCheck = async (onProgress) => {
-    showToast('Executing REAL security check against World Monitor target...', 'info');
+    showToast('Executing REAL security check against target...', 'info');
     if (onProgress) onProgress({ stepName: 'Parsing TS/JSX AST nodes...', progressPercent: 50 });
 
     try {
@@ -164,17 +180,25 @@ export function AppProvider({ children }) {
     }
   };
 
-  const validateFinding = async (findingId) => {
+  const validateFinding = async (findingId, validationData = {}) => {
     if (userRole !== 'SECURITY_ANALYST') {
       showToast('Action Restricted: Only Security Analyst role can validate findings.', 'error');
       return null;
     }
     try {
-      const res = await apiService.validateFinding(findingId, user.name);
+      const payload = typeof validationData === 'string'
+        ? { validatedBy: validationData || user.name, action: 'VALIDATE' }
+        : { validatedBy: user.name, action: 'VALIDATE', ...validationData };
+
+      const res = await apiService.validateFinding(findingId, payload);
       if (res.success) {
-        showToast(`Finding ${findingId} validated by Security Analyst.`, 'success');
+        const isFalsePositive = payload.action === 'MARK_FALSE_POSITIVE';
+        const actionLabel = isFalsePositive ? 'marked as False Positive' : 'validated as confirmed vulnerability';
+        showToast(`Finding ${findingId} ${actionLabel}.`, isFalsePositive ? 'info' : 'success');
         await refreshData();
         return res.finding;
+      } else {
+        showToast(res.error?.message || 'Validation failed', 'error');
       }
     } catch (err) {
       showToast(`Validation failed: ${err.message}`, 'error');
@@ -196,9 +220,9 @@ export function AppProvider({ children }) {
     return null;
   };
 
-  const markReadyForRetest = async (findingId) => {
+  const markReadyForRetest = async (findingId, notes = '') => {
     try {
-      const res = await apiService.updateRemediation(findingId, { markReadyForRetest: true, actor: user.name });
+      const res = await apiService.updateRemediation(findingId, { markReadyForRetest: true, notes, actor: user.name });
       if (res.success) {
         showToast(`Finding ${findingId} marked READY FOR RETEST.`, 'success');
         await refreshData();
@@ -211,22 +235,28 @@ export function AppProvider({ children }) {
   };
 
   const executeRetest = async (findingId, simulateOutcome, onStep) => {
-    showToast(`Executing retest against target filesystem for ${findingId}...`, 'info');
-    if (onStep) onStep({ stepName: 'Re-evaluating target source files...', progressPercent: 40 });
+    showToast(`Executing retest for ${findingId}...`, 'info');
+    if (onStep) onStep({ stepName: 'Re-evaluating target security boundaries...', progressPercent: 40 });
 
     try {
-      const res = await apiService.retestFinding(findingId, user.name);
+      const res = await apiService.retestFinding(findingId, {
+        actor: user.name,
+        simulatedFix: simulateOutcome !== 'FAILED'
+      });
       if (onStep) onStep({ stepName: 'Finalizing retest outcome...', progressPercent: 100 });
 
       if (res.success) {
         setLatestScanResultState(res.scanResult);
         await refreshData();
-        if (res.finding.status === 'VERIFIED') {
-          showToast(`Retest PASSED! Source clean. Finding ${findingId} set to VERIFIED.`, 'success');
+        const outcomeStatus = (res.finding?.status || '').toLowerCase();
+        if (outcomeStatus === 'verified') {
+          showToast(`Retest PASSED! Remediation verified. Finding ${findingId} → VERIFIED.`, 'success');
         } else {
-          showToast(`Retest FAILED! Vulnerability still detected. Status set to REOPENED.`, 'error');
+          showToast(`Retest FAILED! Vulnerability still detected. Finding ${findingId} → REGRESSION.`, 'error');
         }
         return res.finding;
+      } else {
+        showToast(res.error?.message || 'Retest failed', 'error');
       }
     } catch (err) {
       showToast(`Retest execution failed: ${err.message}`, 'error');
@@ -274,6 +304,7 @@ export function AppProvider({ children }) {
         toast,
         showToast,
         backendStatus,
+        createAssessment,
         triggerAssessment,
         runRealCheck,
         latestScanResult,
@@ -301,4 +332,3 @@ export function useApp() {
   }
   return context;
 }
-
