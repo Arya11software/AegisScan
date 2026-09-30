@@ -39,9 +39,11 @@ export default function AssessmentsListPage() {
         </div>
 
         <button
-          onClick={() => {
-            triggerAssessment('World Monitor');
-            navigate('/dashboard');
+          onClick={async () => {
+            const res = await triggerAssessment('World Monitor');
+            if (res?.success && res?.assessmentId) {
+              navigate(`/assessments/${res.assessmentId}`);
+            }
           }}
           className="bg-[#087F5B] hover:bg-[#064E3B] text-white px-4 py-2 rounded-md text-xs font-bold transition-all shadow-sm flex items-center space-x-2 cursor-pointer"
         >

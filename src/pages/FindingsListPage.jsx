@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShieldAlert, Filter, ArrowRight, CheckCircle2, AlertTriangle, ShieldCheck, Search, Flame } from 'lucide-react';
+import { ShieldAlert, Filter, ArrowRight, CheckCircle2, AlertTriangle, ShieldCheck, Search, Flame, Sparkles } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 export default function FindingsListPage() {

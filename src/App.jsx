@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Layout
 import DashboardLayout from './layouts/DashboardLayout';
@@ -25,46 +26,50 @@ import SettingsPage from './pages/SettingsPage';
 export default function App() {
   return (
     <AppProvider>
-      <Router>
-        <Routes>
-          {/* Public Auth */}
-          <Route path="/login" element={<LoginPage />} />
+      <ErrorBoundary>
+        <Router>
+          <Routes>
+            {/* Public Auth */}
+            <Route path="/login" element={<LoginPage />} />
 
-          {/* Authenticated SOC Shell */}
-          <Route element={<DashboardLayout />}>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route path="/dashboard" element={<DashboardPage />} />
-            
-            {/* Target Routes */}
-            <Route path="/targets" element={<TargetsListPage />} />
+            {/* Authenticated SOC Shell */}
+            <Route element={<DashboardLayout />}>
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/dashboard" element={<DashboardPage />} />
+              
+              {/* Target Routes */}
+              <Route path="/targets" element={<TargetsListPage />} />
 
-            {/* Assessment Routes */}
-            <Route path="/assessments" element={<AssessmentsListPage />} />
-            <Route path="/assessments/new" element={<NewAssessmentPage />} />
-            <Route path="/assessments/:id" element={<AssessmentDetailPage />} />
+              {/* Assessment Routes */}
+              <Route path="/assessments" element={<AssessmentsListPage />} />
+              <Route path="/assessments/new" element={<NewAssessmentPage />} />
+              <Route path="/assessments/:id" element={<AssessmentDetailPage />} />
+              <Route path="/assessment/:id" element={<AssessmentDetailPage />} />
 
-            {/* Surface & Checks */}
-            <Route path="/attack-surface" element={<AttackSurfacePage />} />
-            <Route path="/security-checks" element={<SecurityChecksPage />} />
+              {/* Surface & Checks */}
+              <Route path="/attack-surface" element={<AttackSurfacePage />} />
+              <Route path="/security-checks" element={<SecurityChecksPage />} />
 
-            {/* Findings & Evidence */}
-            <Route path="/findings" element={<FindingsListPage />} />
-            <Route path="/findings/:id" element={<FindingDetailPage />} />
-            <Route path="/evidence" element={<EvidencePage />} />
+              {/* Findings & Evidence */}
+              <Route path="/findings" element={<FindingsListPage />} />
+              <Route path="/findings/:id" element={<FindingDetailPage />} />
+              <Route path="/finding/:id" element={<FindingDetailPage />} />
+              <Route path="/evidence" element={<EvidencePage />} />
 
-            {/* Closed Loop: Remediation & Retesting */}
-            <Route path="/remediation" element={<RemediationPage />} />
-            <Route path="/retesting" element={<RetestingPage />} />
+              {/* Closed Loop: Remediation & Retesting */}
+              <Route path="/remediation" element={<RemediationPage />} />
+              <Route path="/retesting" element={<RetestingPage />} />
 
-            {/* Reporting & Settings */}
-            <Route path="/reports" element={<ReportsPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-          </Route>
+              {/* Reporting & Settings */}
+              <Route path="/reports" element={<ReportsPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+            </Route>
 
-          {/* Fallback */}
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
-      </Router>
+            {/* Fallback */}
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </Router>
+      </ErrorBoundary>
     </AppProvider>
   );
 }

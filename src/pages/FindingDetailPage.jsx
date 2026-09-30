@@ -19,7 +19,6 @@ import {
   AlertOctagon
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { storageService } from '../services/storageService';
 import AISecurityAssistant from '../components/AISecurityAssistant';
 import { LIFECYCLE_STATES } from '../services/findingStateMachine';
 
@@ -28,6 +27,7 @@ export default function FindingDetailPage() {
   const navigate = useNavigate();
   const { 
     findings, 
+    evidenceList: globalEvidenceList,
     userRole, 
     validateFinding, 
     openRemediation, 
@@ -36,10 +36,26 @@ export default function FindingDetailPage() {
   } = useApp();
   const [activeTab, setActiveTab] = useState('Overview');
 
-  const finding = findings.find(f => f.id === id) || findings[0];
-  const evidenceList = finding?.evidence || (finding?.evidenceIds?.map(evId => storageService.getEvidence(evId)).filter(Boolean)) || [];
+  const finding = findings.find(f => f.id === id) || (id ? null : findings[0]);
 
-  if (!finding) return null;
+  if (!finding) {
+    return (
+      <div className="bg-white border border-[#DDE5DF] rounded-lg p-8 text-center space-y-3 shadow-2xs">
+        <h2 className="text-sm font-extrabold text-[#17211B]">Finding Record Not Found</h2>
+        <p className="text-xs text-[#64746A]">Finding ID <strong className="font-mono text-[#087F5B]">{id}</strong> was not found in the active finding store.</p>
+        <button
+          onClick={() => navigate('/findings')}
+          className="bg-[#087F5B] hover:bg-[#064E3B] text-white px-4 py-2 rounded-md text-xs font-bold transition-all shadow-sm cursor-pointer"
+        >
+          Back to Findings List
+        </button>
+      </div>
+    );
+  }
+
+  const evidenceList = (finding.evidence && finding.evidence.length > 0) 
+    ? finding.evidence 
+    : (globalEvidenceList || []).filter(ev => ev.findingId === finding.id || (finding.evidenceIds && finding.evidenceIds.includes(ev.id)));
 
   const isAnalyst = userRole === 'SECURITY_ANALYST';
   const isDeveloper = userRole === 'DEVELOPER';

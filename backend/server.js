@@ -1,7 +1,37 @@
 import express from 'express';
-import { scannerService } from './services/scannerService.js';
+import { Worker } from 'worker_threads';
+import path from 'path';
+import { scannerService, SCOPE_TO_CHECKS_MAP } from './services/scannerService.js';
 import { profileTargetRepository, discoverAttackSurface } from './services/targetProfiler.js';
 import { dbService } from './services/dbService.js';
+import { canTransition, transitionFinding, LIFECYCLE_STATES } from './services/findingStateMachine.js';
+
+function runChecksInWorker(executableCheckIds) {
+  return new Promise((resolve, reject) => {
+    const workerPath = path.resolve('backend/workers/scannerWorker.js');
+    const worker = new Worker(workerPath, {
+      workerData: { executableCheckIds }
+    });
+
+    worker.on('message', (message) => {
+      if (message.success) {
+        resolve(message.scanResult);
+      } else {
+        reject(new Error(message.error?.message || 'Worker thread scan failed'));
+      }
+    });
+
+    worker.on('error', (err) => {
+      reject(err);
+    });
+
+    worker.on('exit', (code) => {
+      if (code !== 0) {
+        reject(new Error(`Worker stopped with exit code ${code}`));
+      }
+    });
+  });
+}
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -51,7 +81,9 @@ app.get('/api/attack-surface', (req, res) => {
 app.get('/api/security-checks', (req, res) => {
   res.json({
     success: true,
-    checks: scannerService.getAvailableChecks()
+    checks: scannerService.getAvailableChecks(),
+    scopeMap: SCOPE_TO_CHECKS_MAP,
+    scopes: Object.keys(SCOPE_TO_CHECKS_MAP)
   });
 });
 
@@ -76,17 +108,31 @@ app.post('/api/security-checks/run', (req, res) => {
 });
 
 // 5. POST /api/assessment/start & GET /api/assessment/:id
-app.post('/api/assessment/start', (req, res) => {
+app.post('/api/assessment/start', async (req, res) => {
   try {
-    const { targetName = 'World Monitor', scopes = [] } = req.body;
+    const { targetName = 'World Monitor', scopes = [], checkIds = [] } = req.body;
+
+    const resolvedCheckObjs = scannerService.resolveScopeAndCheckIds(scopes, checkIds);
+    if (!resolvedCheckObjs || resolvedCheckObjs.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_SCOPE',
+          message: 'No valid security checks or scopes selected for assessment.'
+        }
+      });
+    }
+
+    const executableCheckIds = resolvedCheckObjs.map(c => c.id);
+    const executableRuleIds = resolvedCheckObjs.map(c => c.ruleId);
     const assessmentId = `WM-2026-${Date.now().toString().slice(-6)}`;
 
     // Profile & discover surface
     const profile = profileTargetRepository();
     const surface = discoverAttackSurface();
 
-    // Run all security checks against target
-    const scanResult = scannerService.runCheck('ALL');
+    // Run security checks off the main Express thread in a dedicated Worker Thread
+    const scanResult = await runChecksInWorker(executableCheckIds);
 
     dbService.setLatestScanResult(scanResult);
     if (scanResult.findings && scanResult.findings.length > 0) {
@@ -115,20 +161,13 @@ app.post('/api/assessment/start', (req, res) => {
       validatedCount: allFindings.filter(f => f.validation?.status === 'CONFIRMED').length,
       verifiedCount: allFindings.filter(f => f.status === 'VERIFIED').length,
       retestCount: allFindings.filter(f => f.status === 'READY_FOR_RETEST' || f.status === 'VERIFIED' || f.status === 'REOPENED').length,
-      scopes: scopes.length > 0 ? scopes : [
-        'Authentication',
-        'Authorization',
-        'Session Management',
-        'API Security',
-        'Input Validation',
-        'Client Security',
-        'Secure Communication',
-        'Data Protection'
-      ]
+      scopes: scopes.length > 0 ? scopes : resolvedCheckObjs.map(c => c.category),
+      checkIds: executableCheckIds,
+      ruleIds: executableRuleIds
     };
 
     dbService.saveAssessment(newAssessment);
-    dbService.addAuditLog('ASSESSMENT_START', 'AegisScan Engine', targetName, `Assessment ${assessmentId} completed.`);
+    dbService.addAuditLog('ASSESSMENT_START', 'AegisScan Engine', targetName, `Assessment ${assessmentId} completed for ${executableCheckIds.length} check(s).`);
 
     res.json({
       success: true,
@@ -143,12 +182,21 @@ app.post('/api/assessment/start', (req, res) => {
   }
 });
 
+app.get('/api/assessments', (req, res) => {
+  res.json({ success: true, assessments: dbService.getAssessments() });
+});
+
 app.get('/api/assessment/:id', (req, res) => {
   const assessment = dbService.getAssessment(req.params.id);
   if (!assessment) {
     return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Assessment not found' } });
   }
   res.json({ success: true, assessment });
+});
+
+app.post('/api/reset-demo', (req, res) => {
+  dbService.resetToDefault();
+  res.json({ success: true, message: 'Backend persistent store reset to baseline state.' });
 });
 
 // 6. GET /api/findings & GET /api/findings/:id
@@ -213,13 +261,13 @@ app.post('/api/ai/analyze', (req, res) => {
 
     if (finding) {
       finding.aiAnalysis = analysis;
-      if (finding.status === 'DETECTED') {
-        finding.status = 'AI_ANALYZED';
+      if (canTransition(finding.status, LIFECYCLE_STATES.AI_ANALYZED)) {
+        transitionFinding(finding, LIFECYCLE_STATES.AI_ANALYZED, 'AI Security Engine', 'AI contextual analysis completed.');
       }
       dbService.saveFinding(finding);
     }
 
-    res.json({ success: true, analysis });
+    res.json({ success: true, analysis, finding });
   } catch (err) {
     res.status(500).json({ success: false, error: { code: 'AI_ANALYSIS_ERROR', message: err.message } });
   }
@@ -230,46 +278,35 @@ app.post('/api/findings/:id/validate', (req, res) => {
   const finding = dbService.getFinding(req.params.id);
   if (!finding) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Finding not found' } });
 
-  finding.status = 'VALIDATED';
-  finding.validation = {
-    status: 'CONFIRMED',
-    validatedBy: req.body.validatedBy || 'Security Analyst',
-    validatedAt: new Date().toISOString()
-  };
-  if (!finding.auditTrail) finding.auditTrail = [];
-  finding.auditTrail.push({
-    timestamp: new Date().toISOString(),
-    action: 'VALIDATED',
-    actor: req.body.validatedBy || 'Security Analyst',
-    details: 'Vulnerability evidence validated by analyst.'
-  });
-  dbService.saveFinding(finding);
-  dbService.addAuditLog('VALIDATE_FINDING', req.body.validatedBy || 'Security Analyst', finding.id, `Validated finding ${finding.id}`);
-  res.json({ success: true, finding });
+  try {
+    const actor = req.body.validatedBy || 'Security Analyst';
+    transitionFinding(finding, LIFECYCLE_STATES.VALIDATED, actor, 'Vulnerability evidence validated by analyst.');
+    dbService.saveFinding(finding);
+    dbService.addAuditLog('VALIDATE_FINDING', actor, finding.id, `Validated finding ${finding.id}`);
+    res.json({ success: true, finding });
+  } catch (err) {
+    res.status(400).json({ success: false, error: { code: 'INVALID_TRANSITION', message: err.message } });
+  }
 });
 
 app.post('/api/findings/:id/remediation', (req, res) => {
   const finding = dbService.getFinding(req.params.id);
   if (!finding) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Finding not found' } });
 
-  const nextStatus = req.body.markReadyForRetest ? 'READY_FOR_RETEST' : 'REMEDIATION_OPEN';
-  finding.status = nextStatus;
-  finding.remediation = {
-    status: nextStatus,
-    recommendation: req.body.recommendation || finding.remediation?.recommendation || 'Remediate source file.',
-    assignedRole: req.body.assignedRole || 'DEVELOPER',
-    updatedAt: new Date().toISOString()
-  };
-  if (!finding.auditTrail) finding.auditTrail = [];
-  finding.auditTrail.push({
-    timestamp: new Date().toISOString(),
-    action: nextStatus,
-    actor: req.body.actor || 'Developer',
-    details: `Updated remediation status to ${nextStatus}`
-  });
-  dbService.saveFinding(finding);
-  dbService.addAuditLog('REMEDIATION_UPDATE', req.body.actor || 'Developer', finding.id, `Remediation status updated to ${nextStatus}`);
-  res.json({ success: true, finding });
+  const nextStatus = req.body.markReadyForRetest ? LIFECYCLE_STATES.READY_FOR_RETEST : LIFECYCLE_STATES.REMEDIATION_OPEN;
+  try {
+    const actor = req.body.actor || 'Developer';
+    transitionFinding(finding, nextStatus, actor, `Updated remediation status to ${nextStatus}`);
+    if (req.body.recommendation) {
+      if (!finding.remediation) finding.remediation = {};
+      finding.remediation.recommendation = req.body.recommendation;
+    }
+    dbService.saveFinding(finding);
+    dbService.addAuditLog('REMEDIATION_UPDATE', actor, finding.id, `Remediation status updated to ${nextStatus}`);
+    res.json({ success: true, finding });
+  } catch (err) {
+    res.status(400).json({ success: false, error: { code: 'INVALID_TRANSITION', message: err.message } });
+  }
 });
 
 app.post('/api/findings/:id/retest', (req, res) => {
@@ -282,38 +319,26 @@ app.post('/api/findings/:id/retest', (req, res) => {
 
   const matched = scanResult.observations ? scanResult.observations.find(o => finding.component.includes(o.file) || finding.title.includes(o.symbol)) : null;
 
-  const timestamp = new Date().toISOString();
-  if (matched) {
-    finding.status = 'REOPENED';
-    finding.currentCondition = 'OBSERVED';
+  const targetStatus = matched ? LIFECYCLE_STATES.REOPENED : LIFECYCLE_STATES.VERIFIED;
+  try {
+    const actor = req.body.actor || 'Retest Engine';
+    transitionFinding(finding, targetStatus, actor, `Retest executed against target scope. Outcome: ${targetStatus}`);
+    finding.currentCondition = matched ? 'OBSERVED' : 'NO_MATCH';
     if (!finding.retest) finding.retest = {};
-    finding.retest.status = 'FAILED';
-    finding.retest.currentCondition = `Condition Still Detected (${matched.symbol} in /${matched.file}:L${matched.line})`;
-    finding.retest.executedAt = timestamp;
-    finding.retest.executedBy = req.body.actor || 'Retest Runner';
-  } else {
-    finding.status = 'VERIFIED';
-    finding.currentCondition = 'NO_MATCH';
-    if (!finding.retest) finding.retest = {};
-    finding.retest.status = 'PASSED';
-    finding.retest.currentCondition = 'Condition Not Detected (Target Source Clean)';
-    finding.retest.executedAt = timestamp;
-    finding.retest.executedBy = req.body.actor || 'Retest Runner';
+    if (matched) {
+      finding.retest.currentCondition = `Condition Still Detected (${matched.symbol} in /${matched.file}:L${matched.line})`;
+    } else {
+      finding.retest.currentCondition = 'Condition Not Detected (Target Source Clean)';
+    }
+
+    dbService.saveFinding(finding);
+    dbService.setLatestScanResult(scanResult);
+    dbService.addAuditLog('RETEST_EXECUTE', actor, finding.id, `Retest executed for ${finding.id}. Result: ${finding.status}`);
+
+    res.json({ success: true, finding, scanResult });
+  } catch (err) {
+    res.status(400).json({ success: false, error: { code: 'INVALID_TRANSITION', message: err.message } });
   }
-
-  if (!finding.auditTrail) finding.auditTrail = [];
-  finding.auditTrail.push({
-    timestamp,
-    action: finding.status,
-    actor: req.body.actor || 'Retest Engine',
-    details: `Retest completed. Outcome: ${finding.status} (Condition: ${finding.currentCondition})`
-  });
-
-  dbService.saveFinding(finding);
-  dbService.setLatestScanResult(scanResult);
-  dbService.addAuditLog('RETEST_EXECUTE', req.body.actor || 'Retest Engine', finding.id, `Retest executed for ${finding.id}. Result: ${finding.status}`);
-
-  res.json({ success: true, finding, scanResult });
 });
 
 // 10. GET /api/reports/:assessmentId
@@ -346,7 +371,18 @@ app.get('/api/reports/:assessmentId', (req, res) => {
   });
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`[AegisScan Backend] Security Engine running on http://localhost:${PORT}`);
 });
+
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`[AegisScan Backend Error] Port ${PORT} is already in use by another process.`);
+    process.exit(1);
+  } else {
+    console.error(`[AegisScan Backend Error] Server startup failure:`, err.message);
+    process.exit(1);
+  }
+});
+
 

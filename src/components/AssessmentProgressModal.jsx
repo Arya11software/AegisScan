@@ -7,7 +7,12 @@ export default function AssessmentProgressModal() {
 
   if (!assessmentModalOpen || !assessmentProgress) return null;
 
-  const { currentStep, totalSteps, operation, progressPercent, completedSteps, isFinished } = assessmentProgress;
+  const currentStep = assessmentProgress.currentStep || 1;
+  const totalSteps = assessmentProgress.totalSteps || 4;
+  const operation = assessmentProgress.operation || assessmentProgress.stepName || 'Executing Assessment';
+  const progressPercent = assessmentProgress.progressPercent || 0;
+  const completedSteps = Array.isArray(assessmentProgress.completedSteps) ? assessmentProgress.completedSteps : [];
+  const isFinished = Boolean(assessmentProgress.isFinished);
 
   return (
     <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center z-50 p-4">

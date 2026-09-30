@@ -72,9 +72,11 @@ export default function TargetsListPage() {
     }, 300);
   };
 
-  const handleStartAssessment = (targetName) => {
-    triggerAssessment(targetName || 'World Monitor');
-    navigate('/dashboard');
+  const handleStartAssessment = async (targetName) => {
+    const res = await triggerAssessment(targetName || 'World Monitor');
+    if (res?.success && res?.assessmentId) {
+      navigate(`/assessments/${res.assessmentId}`);
+    }
   };
 
   const p = profile || {

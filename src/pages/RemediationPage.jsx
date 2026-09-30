@@ -70,7 +70,11 @@ export default function RemediationPage() {
 
               <div className="bg-[#E6F4F1] border border-[#B2DFDB] p-4 rounded-md space-y-1">
                 <h3 className="text-xs font-bold text-[#064E3B] uppercase tracking-wider">Recommended Remediation</h3>
-                <p className="text-xs text-[#17211B] font-semibold">{item.remediation}</p>
+                <p className="text-xs text-[#17211B] font-semibold">
+                  {typeof item.remediation === 'object' && item.remediation !== null
+                    ? item.remediation.recommendation || 'Remediation recommendation pending.'
+                    : item.remediation || 'Remediation recommendation pending.'}
+                </p>
               </div>
             </div>
 

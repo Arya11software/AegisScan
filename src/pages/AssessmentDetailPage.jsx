@@ -1,16 +1,83 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Target, Play, ShieldCheck, CheckCircle2, AlertTriangle, ArrowLeft } from 'lucide-react';
+import { Target, Play, ShieldCheck, CheckCircle2, AlertTriangle, ArrowLeft, Loader2 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { apiService } from '../services/apiService';
 
 export default function AssessmentDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { assessments, triggerAssessment } = useApp();
 
-  const assessment = assessments.find(a => a.id === id) || assessments[0];
+  const [assessment, setAssessment] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  if (!assessment) return null;
+  useEffect(() => {
+    let isMounted = true;
+    const ctxAssessment = (Array.isArray(assessments) ? assessments : []).find(a => a.id === id) || (id ? null : (assessments && assessments[0]));
+    if (ctxAssessment) {
+      setAssessment(ctxAssessment);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
+    if (!id) {
+      setLoading(false);
+      setError('No assessment ID specified.');
+      return;
+    }
+
+    setLoading(true);
+    apiService.getAssessment(id)
+      .then(res => {
+        if (!isMounted) return;
+        if (res?.success && res?.assessment) {
+          setAssessment(res.assessment);
+          setError(null);
+        } else {
+          setAssessment(null);
+          setError(res?.error?.message || 'Assessment record not found');
+        }
+      })
+      .catch(err => {
+        if (!isMounted) return;
+        setAssessment(null);
+        setError(err.message || 'Failed to fetch assessment record');
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [id, assessments]);
+
+  if (loading) {
+    return (
+      <div className="bg-white border border-[#DDE5DF] rounded-lg p-8 text-center space-y-3 shadow-2xs flex flex-col items-center justify-center min-h-[200px]">
+        <Loader2 className="w-6 h-6 text-[#087F5B] animate-spin mx-auto" />
+        <p className="text-xs text-[#64746A] font-medium">Loading assessment details for <strong className="font-mono text-[#087F5B]">{id}</strong>...</p>
+      </div>
+    );
+  }
+
+  if (error || !assessment) {
+    return (
+      <div className="bg-white border border-[#DDE5DF] rounded-lg p-8 text-center space-y-3 shadow-2xs">
+        <h2 className="text-sm font-extrabold text-[#17211B]">Assessment Record Not Found</h2>
+        <p className="text-xs text-[#64746A]">Assessment ID <strong className="font-mono text-[#087F5B]">{id}</strong> was not found in the backend persistent store.</p>
+        <button
+          onClick={() => navigate('/assessments')}
+          className="bg-[#087F5B] hover:bg-[#064E3B] text-white px-4 py-2 rounded-md text-xs font-bold transition-all shadow-sm cursor-pointer"
+        >
+          Back to Assessments List
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -49,7 +116,7 @@ export default function AssessmentDetailPage() {
       <div className="bg-white border border-[#DDE5DF] rounded-lg p-6 space-y-4 shadow-2xs">
         <h2 className="text-xs font-bold text-[#17211B] uppercase tracking-wider">Assessment Scopes Checked</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {assessment.scopes?.map((scope, idx) => (
+          {(assessment.scopes || []).map((scope, idx) => (
             <div key={idx} className="bg-[#F7F8F5] border border-[#DDE5DF] rounded-md p-3 text-xs font-bold text-[#17211B] flex items-center space-x-2">
               <CheckCircle2 className="w-4 h-4 text-[#087F5B] shrink-0" />
               <span>{scope}</span>
@@ -59,7 +126,12 @@ export default function AssessmentDetailPage() {
 
         <div className="pt-4 border-t border-[#DDE5DF] flex justify-end">
           <button
-            onClick={() => triggerAssessment(assessment.targetName, assessment.scopes)}
+            onClick={async () => {
+              const res = await triggerAssessment(assessment.targetName, assessment.scopes, assessment.checkIds);
+              if (res?.success && res?.assessmentId) {
+                navigate(`/assessments/${res.assessmentId}`);
+              }
+            }}
             className="bg-[#087F5B] hover:bg-[#064E3B] text-white px-5 py-2.5 rounded-md text-xs font-bold flex items-center space-x-2 cursor-pointer shadow-sm"
           >
             <Play className="w-4 h-4 fill-current" />
@@ -70,3 +142,4 @@ export default function AssessmentDetailPage() {
     </div>
   );
 }
+

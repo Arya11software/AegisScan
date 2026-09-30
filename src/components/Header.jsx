@@ -2,11 +2,10 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Play, Shield, Server, UserCheck, Plus, UserCog, RefreshCw } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { storageService } from '../services/storageService';
 
 export default function Header() {
   const navigate = useNavigate();
-  const { activeTarget, activeAssessmentId, triggerAssessment, user, userRole, setUserRole, refreshData, showToast } = useApp();
+  const { activeTarget, activeAssessmentId, triggerAssessment, user, userRole, setUserRole, refreshData, resetDemo, showToast } = useApp();
 
   return (
     <header className="h-16 bg-white border-b border-[#DDE5DF] px-6 flex items-center justify-between sticky top-0 z-20 shadow-2xs">
@@ -28,7 +27,12 @@ export default function Header() {
       {/* Primary Actions, Role Switcher & User info */}
       <div className="flex items-center space-x-3">
         <button
-          onClick={() => triggerAssessment(activeTarget)}
+          onClick={async () => {
+            const res = await triggerAssessment(activeTarget);
+            if (res?.success && res?.assessmentId) {
+              navigate(`/assessments/${res.assessmentId}`);
+            }
+          }}
           className="flex items-center space-x-2 bg-[#087F5B] hover:bg-[#064E3B] text-white px-4 py-2 rounded-md text-xs font-bold tracking-wide transition-all shadow-sm active:scale-95 cursor-pointer"
         >
           <Play className="w-3.5 h-3.5 fill-current" />
@@ -36,11 +40,7 @@ export default function Header() {
         </button>
 
         <button
-          onClick={() => {
-            storageService.resetToDefault();
-            refreshData();
-            showToast('Prototype demo data reset to initial baseline state.', 'info');
-          }}
+          onClick={() => resetDemo()}
           className="flex items-center space-x-1.5 bg-white hover:bg-[#F7F8F5] border border-[#DDE5DF] text-[#17211B] px-3 py-2 rounded-md text-xs font-semibold transition-colors cursor-pointer"
           title="Reset findings to baseline demo state"
         >

@@ -1,15 +1,12 @@
 import React from 'react';
 import { Settings, ShieldCheck, RefreshCw, ScrollText, AlertTriangle, UserCheck } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { storageService } from '../services/storageService';
 
 export default function SettingsPage() {
-  const { auditLogs, showToast, refreshData, user } = useApp();
+  const { auditLogs, showToast, refreshData, resetDemo, user } = useApp();
 
-  const handleResetData = () => {
-    storageService.resetToDefault();
-    refreshData();
-    showToast('Prototype data reset to initial demonstration state.', 'info');
+  const handleResetData = async () => {
+    await resetDemo();
   };
 
   return (

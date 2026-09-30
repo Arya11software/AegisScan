@@ -100,12 +100,93 @@ const AVAILABLE_CHECKS = [
   }
 ];
 
+export const SCOPE_TO_CHECKS_MAP = {
+  'Client Security': ['REAL-CHK-001', 'CONFIG-REAL-001'],
+  'Configuration Hygiene': ['REAL-CHK-001', 'CONFIG-REAL-001'],
+  'Authentication': ['REAL-CHK-002', 'AUTH-REAL-002'],
+  'Session Management': ['REAL-CHK-002', 'AUTH-REAL-002'],
+  'Authorization': ['REAL-CHK-003', 'AUTH-REAL-003'],
+  'API Security': ['REAL-CHK-003', 'AUTH-REAL-003', 'REAL-CHK-005', 'NET-REAL-005'],
+  'Input Validation': ['REAL-CHK-004', 'INPUT-REAL-004'],
+  'Secure Communication': ['REAL-CHK-005', 'NET-REAL-005'],
+  'Data Protection': ['REAL-CHK-006', 'STORE-REAL-006'],
+  'Data Storage': ['REAL-CHK-006', 'STORE-REAL-006'],
+  'Storage': ['REAL-CHK-006', 'STORE-REAL-006'],
+  'Dependencies': ['REAL-CHK-007', 'DEP-REAL-007']
+};
+
+function resolveCheck(identifier) {
+  if (!identifier) return null;
+  return AVAILABLE_CHECKS.find(c => c.id === identifier || c.ruleId === identifier) || null;
+}
+
 export const scannerService = {
   getAvailableChecks() {
     return AVAILABLE_CHECKS;
   },
 
-  runCheck(checkId = 'REAL-CHK-001') {
+  resolveCheck(identifier) {
+    return resolveCheck(identifier);
+  },
+
+  resolveScopeAndCheckIds(scopes = [], checkIds = []) {
+    const hasExplicitCheckIds = Array.isArray(checkIds) && checkIds.length > 0;
+    const hasExplicitScopes = Array.isArray(scopes) && scopes.length > 0;
+
+    // Default to all available checks if neither checkIds nor scopes were supplied
+    if (!hasExplicitCheckIds && !hasExplicitScopes) {
+      return [...AVAILABLE_CHECKS];
+    }
+
+    const candidateIds = new Set();
+
+    if (hasExplicitCheckIds) {
+      checkIds.forEach(id => {
+        if (id) candidateIds.add(id);
+      });
+    }
+
+    if (hasExplicitScopes) {
+      scopes.forEach(scope => {
+        const mapped = SCOPE_TO_CHECKS_MAP[scope];
+        if (mapped) {
+          mapped.forEach(id => candidateIds.add(id));
+        }
+      });
+    }
+
+    const resolved = [];
+    candidateIds.forEach(id => {
+      const checkObj = resolveCheck(id);
+      if (checkObj && !resolved.some(r => r.id === checkObj.id)) {
+        resolved.push(checkObj);
+      }
+    });
+
+    return resolved;
+  },
+
+  runChecks(requestedCheckIds) {
+    console.log('[SCANNER] EXECUTING ASSESSMENT SCAN for checks:', requestedCheckIds);
+    if (!Array.isArray(requestedCheckIds) || requestedCheckIds.length === 0) {
+      throw new Error('No valid security checks provided for execution.');
+    }
+
+    const selectedChecks = [];
+    for (const item of requestedCheckIds) {
+      const checkObj = resolveCheck(item);
+      if (checkObj && !selectedChecks.some(c => c.id === checkObj.id)) {
+        selectedChecks.push(checkObj);
+      }
+    }
+
+    if (selectedChecks.length === 0) {
+      throw new Error('None of the provided check IDs matched available security checks.');
+    }
+
+    const selectedCheckIds = selectedChecks.map(c => c.id);
+    const selectedRuleIds = selectedChecks.map(c => c.ruleId);
+
     const rootDir = targetService.getAuthorizedRoot();
     const srcDir = path.join(rootDir, 'src');
     const targetDir = fs.existsSync(srcDir) ? srcDir : rootDir;
@@ -113,8 +194,8 @@ export const scannerService = {
     const allSourceFiles = walkDirectory(targetDir);
     const rawObservations = [];
 
-    // Dependency check runs on package.json
-    if (checkId === 'REAL-CHK-007' || checkId === 'ALL') {
+    // Dependency check runs on package.json if selected
+    if (selectedCheckIds.includes('REAL-CHK-007') || selectedRuleIds.includes('DEP-REAL-007')) {
       const depObs = checkDependencySecurity(rootDir);
       rawObservations.push(...depObs);
     }
@@ -125,27 +206,27 @@ export const scannerService = {
         const content = fs.readFileSync(filePath, 'utf-8');
         const relativePath = path.relative(rootDir, filePath).replace(/\\/g, '/');
 
-        if (checkId === 'REAL-CHK-001' || checkId === 'ALL') {
+        if (selectedCheckIds.includes('REAL-CHK-001') || selectedRuleIds.includes('CONFIG-REAL-001')) {
           const obs = analyzeClientCredentials(relativePath, content);
           rawObservations.push(...obs);
         }
-        if (checkId === 'REAL-CHK-002' || checkId === 'ALL') {
+        if (selectedCheckIds.includes('REAL-CHK-002') || selectedRuleIds.includes('AUTH-REAL-002')) {
           const obs = checkAuthSecurity(relativePath, content);
           rawObservations.push(...obs);
         }
-        if (checkId === 'REAL-CHK-003' || checkId === 'ALL') {
+        if (selectedCheckIds.includes('REAL-CHK-003') || selectedRuleIds.includes('AUTH-REAL-003')) {
           const obs = checkAccessControl(relativePath, content);
           rawObservations.push(...obs);
         }
-        if (checkId === 'REAL-CHK-004' || checkId === 'ALL') {
+        if (selectedCheckIds.includes('REAL-CHK-004') || selectedRuleIds.includes('INPUT-REAL-004')) {
           const obs = checkInputValidation(relativePath, content);
           rawObservations.push(...obs);
         }
-        if (checkId === 'REAL-CHK-005' || checkId === 'ALL') {
+        if (selectedCheckIds.includes('REAL-CHK-005') || selectedRuleIds.includes('NET-REAL-005')) {
           const obs = checkNetworkSecurity(relativePath, content);
           rawObservations.push(...obs);
         }
-        if (checkId === 'REAL-CHK-006' || checkId === 'ALL') {
+        if (selectedCheckIds.includes('REAL-CHK-006') || selectedRuleIds.includes('STORE-REAL-006')) {
           const obs = checkStorageSecurity(relativePath, content);
           rawObservations.push(...obs);
         }
@@ -171,13 +252,15 @@ export const scannerService = {
     const findings = [];
     const evidence = [];
 
-    const selectedCheck = AVAILABLE_CHECKS.find(c => c.id === checkId) || AVAILABLE_CHECKS[0];
+    const primaryCheck = selectedChecks[0];
 
     for (const obs of rawObservations) {
       const hashKey = `${rootDir}:${obs.ruleId}:${obs.file}:${obs.symbol}:${obs.line}`;
       const findingHash = hashString(hashKey);
       const findingId = `F-REAL-${findingHash}`;
       const evidenceId = `EVD-REAL-${findingHash}`;
+
+      const obsCheck = selectedChecks.find(c => c.id === obs.checkId || c.ruleId === obs.ruleId) || primaryCheck;
 
       const evidenceItem = {
         id: evidenceId,
@@ -221,13 +304,13 @@ export const scannerService = {
 
       const findingItem = {
         id: findingId,
-        checkId: obs.checkId || checkId,
+        checkId: obs.checkId || obsCheck.id,
         assessmentId: 'WM-2026-REAL',
         targetId: 'world-monitor',
         targetName: 'World Monitor',
         isRealCheck: true,
-        title: `${obs.checkName || selectedCheck.name} (${obs.symbol})`,
-        category: selectedCheck.category,
+        title: `${obs.checkName || obsCheck.name} (${obs.symbol})`,
+        category: obsCheck.category,
         severity: obs.severity || 'HIGH',
         currentCondition: 'OBSERVED',
         status: 'DETECTED',
@@ -254,7 +337,7 @@ export const scannerService = {
         },
 
         aiAnalysis: {
-          title: `AI Analysis: ${obs.checkName || selectedCheck.name}`,
+          title: `AI Analysis: ${obs.checkName || obsCheck.name}`,
           technicalContext: `Static Babel AST parser confirmed string literal assignment for '${obs.symbol}' in /${obs.file} at line ${obs.line}.`,
           businessImpact: `Elevated risk of credential or security boundary leakage.`,
           remediationGuidance: `Move secret parameters to server-side environment variables or isolate API proxy boundaries.`,
@@ -290,7 +373,7 @@ export const scannerService = {
           {
             timestamp,
             action: 'DETECTED',
-            actor: `Real Security Engine (${obs.checkId || checkId})`,
+            actor: `Real Security Engine (${obs.checkId || obsCheck.id})`,
             details: `Discovered security condition for ${obs.symbol} in /${obs.file}:L${obs.line}`
           }
         ]
@@ -300,10 +383,10 @@ export const scannerService = {
       findings.push(findingItem);
     }
 
-    // Sync finding currentCondition state in dbService for existing findings of this check
+    // Sync finding currentCondition state in dbService ONLY for executed checks
     const existingFindings = dbService.getFindings();
     existingFindings.forEach(f => {
-      if (f.checkId === checkId || (checkId === 'ALL' && f.checkId.startsWith('REAL-CHK-'))) {
+      if (selectedCheckIds.includes(f.checkId) || selectedRuleIds.includes(f.checkId)) {
         const stillObserved = rawObservations.some(obs => f.title.includes(obs.symbol) || f.component.includes(obs.file));
         if (!stillObserved) {
           f.currentCondition = 'NO_MATCH';
@@ -324,8 +407,8 @@ export const scannerService = {
     return {
       success: true,
       check: {
-        checkId,
-        checkName: selectedCheck.name,
+        checkId: selectedCheckIds.join(','),
+        checkName: selectedChecks.map(c => c.name).join(', '),
         target: 'World Monitor (Authorized Local Sandbox)',
         targetRoot: rootDir,
         scannedFilesCount: allSourceFiles.length,
@@ -334,10 +417,23 @@ export const scannerService = {
         sourceHash: targetSourceHash,
         timestamp
       },
+      executedChecks: selectedChecks,
       observations: rawObservations,
       findings,
       evidence
     };
+  },
+
+  runCheck(checkId = 'REAL-CHK-001') {
+    if (checkId === 'ALL') {
+      const allIds = AVAILABLE_CHECKS.map(c => c.id);
+      return this.runChecks(allIds);
+    }
+    const checkObj = resolveCheck(checkId);
+    if (!checkObj) {
+      throw new Error(`Unknown security check ID: ${checkId}`);
+    }
+    return this.runChecks([checkObj.id]);
   }
 };
 

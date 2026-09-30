@@ -15,10 +15,10 @@ import {
   FileCode2,
   Lock
 } from 'lucide-react';
-import { storageService } from '../services/storageService';
+import { useApp } from '../context/AppContext';
 
 export default function AttackSurfacePage() {
-  const attackSurface = storageService.getAttackSurface();
+  const { attackSurface } = useApp();
   const [selectedNode, setSelectedNode] = useState('API');
 
   const nodes = [

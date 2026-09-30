@@ -76,6 +76,11 @@ export const dbService = {
     fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf-8');
   },
 
+  resetToDefault() {
+    this.write(DEFAULT_STORE);
+    return DEFAULT_STORE;
+  },
+
   getAssessments() {
     return this.read().assessments || [];
   },
