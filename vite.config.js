@@ -9,6 +9,13 @@ export default defineConfig(({ mode }) => ({
     tailwindcss()
   ],
   server: {
+    watch: {
+      ignored: [
+        '**/backend/**',
+        '**/.git/**',
+        '**/node_modules/**'
+      ]
+    },
     proxy: {
       // During local `npm run dev`, proxy /api calls to the local backend
       '/api': {

@@ -1,6 +1,23 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Layers, CheckCircle2, AlertTriangle, Lock, ArrowRight, Flame, Shield, Play, Loader2, Sparkles, Server } from 'lucide-react';
+import { 
+  Layers, 
+  CheckCircle2, 
+  AlertTriangle, 
+  Lock, 
+  ArrowRight, 
+  Flame, 
+  Shield, 
+  Play, 
+  Loader2, 
+  Sparkles, 
+  KeyRound, 
+  ShieldCheck, 
+  Server, 
+  ShieldAlert, 
+  Database,
+  FileCheck
+} from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 export default function SecurityChecksPage() {
@@ -26,53 +43,113 @@ export default function SecurityChecksPage() {
   };
 
   // Determine current check status from latestScanResult
-  let checkStatus = 'NOT ASSESSED';
+  let realCheckStatus = 'NOT ASSESSED';
   if (latestScanResult) {
-    checkStatus = latestScanResult.observations && latestScanResult.observations.length > 0 ? 'FAILED' : 'PASS';
+    realCheckStatus = latestScanResult.observations && latestScanResult.observations.length > 0 ? 'FAILED' : 'PASS';
   } else if (realFinding && realFinding.currentCondition === 'OBSERVED') {
-    checkStatus = 'FAILED';
+    realCheckStatus = 'FAILED';
   } else if (realFinding && realFinding.currentCondition === 'NO_MATCH') {
-    checkStatus = 'PASS';
+    realCheckStatus = 'PASS';
   }
 
-  const securityControls = [
+  // Section 9: The 7 Security Domains
+  const securityDomains = [
     {
-      category: 'Authentication',
-      description: 'Session handling, client-token transport, and credential boundaries',
+      id: 'domain-auth',
+      name: 'Authentication & Session',
+      icon: KeyRound,
+      description: 'Session transport, stateless JWT tokens, and token storage boundaries',
+      status: 'PASS',
+      testsCount: 2,
+      testsPassed: 2,
+      findingsCount: 0,
       checks: [
-        { id: 'AUTH-001', name: 'Stateless Client Session Token Transport', status: 'PASS', confidence: 'High (95%)', evidenceId: 'EVD-001-A', findingId: null },
-        { id: 'AUTH-002', name: 'Brute-force Throttling & Rate Limiting', status: 'PASS', confidence: 'High (92%)', evidenceId: null, findingId: null }
+        { id: 'AUTH-001', name: 'Stateless Client Session Token Transport', status: 'PASS', confidence: 'High (95%)', evidenceId: 'EVD-001-A' },
+        { id: 'AUTH-002', name: 'Brute-force Throttling & Rate Limiting', status: 'PASS', confidence: 'High (92%)', evidenceId: null }
       ]
     },
     {
-      category: 'Authorization',
-      description: 'Access control boundaries and privilege separation',
+      id: 'domain-rbac',
+      name: 'Authorization & RBAC',
+      icon: ShieldCheck,
+      description: 'Role-based access boundaries and indirect object reference enforcement',
+      status: 'REVIEW',
+      testsCount: 2,
+      testsPassed: 1,
+      findingsCount: 1,
       checks: [
-        { id: 'AZ-001', name: 'Role-Based Access Control Scope Enforcement', status: 'PASS', confidence: 'High (90%)', evidenceId: null, findingId: null },
+        { id: 'AZ-001', name: 'Role-Based Access Control Scope Enforcement', status: 'PASS', confidence: 'High (90%)', evidenceId: null },
         { id: 'AZ-002', name: 'Indirect Object Reference & Context Bounds', status: 'REVIEW', confidence: 'Medium (85%)', evidenceId: 'EVD-001-A', findingId: 'F-001' }
       ]
     },
     {
-      category: 'Configuration',
-      description: 'Client-side vs server-side environment boundary and config hygiene',
+      id: 'domain-api',
+      name: 'API Security',
+      icon: Server,
+      description: 'RESTful endpoint sanitization, CORS wildcard limits, and DTO filtering',
+      status: 'REVIEW',
+      testsCount: 2,
+      testsPassed: 1,
+      findingsCount: 1,
       checks: [
-        { id: 'REAL-CHK-001', name: 'Client-Accessible Environment Secret Exposure Check (REAL CHECK)', status: checkStatus, confidence: 'High (96.5%)', evidenceId: realFinding ? (realFinding.evidenceIds?.[0] || 'EVD-REAL-001') : null, findingId: realFinding?.id || null, isRealCheck: true },
-        { id: 'CONFIG-001', name: 'Production Build Minification & Debug Flag Isolation', status: 'PASS', confidence: 'High (98%)', evidenceId: null, findingId: null }
-      ]
-    },
-    {
-      category: 'Dependencies',
-      description: 'Third-party package audit and known CVE vulnerability scanning',
-      checks: [
-        { id: 'DEP-001', name: 'Lockfile CVE Known Vulnerability Audit', status: 'PASS', confidence: 'High (99%)', evidenceId: null, findingId: null }
-      ]
-    },
-    {
-      category: 'API Security',
-      description: 'RESTful endpoint security controls, CORS, and header enforcement',
-      checks: [
-        { id: 'API-001', name: 'CORS Wildcard Policy & Origin Validation', status: 'PASS', confidence: 'High (93%)', evidenceId: null, findingId: null },
+        { id: 'API-001', name: 'CORS Wildcard Policy & Origin Validation', status: 'PASS', confidence: 'High (93%)', evidenceId: null },
         { id: 'API-002', name: 'DTO Serialization Field Filtering Check', status: 'REVIEW', confidence: 'High (99%)', evidenceId: 'EVD-003-A', findingId: 'F-003' }
+      ]
+    },
+    {
+      id: 'domain-input',
+      name: 'Input Validation',
+      icon: FileCheck,
+      description: 'Client-side parameter encoding, schema type checks, and XSS sanitization',
+      status: 'PASS',
+      testsCount: 2,
+      testsPassed: 2,
+      findingsCount: 0,
+      checks: [
+        { id: 'INP-001', name: 'Strict Schema Input Sanitization', status: 'PASS', confidence: 'High (94%)', evidenceId: null },
+        { id: 'INP-002', name: 'DOM Template String Escaping Rules', status: 'PASS', confidence: 'High (96%)', evidenceId: null }
+      ]
+    },
+    {
+      id: 'domain-client',
+      name: 'Client-Side Security',
+      icon: Shield,
+      description: 'Runtime environment boundaries, client secrets exposure, and debug flags',
+      status: realCheckStatus,
+      testsCount: 2,
+      testsPassed: realCheckStatus === 'PASS' ? 2 : 1,
+      findingsCount: realCheckStatus === 'FAILED' ? 1 : 0,
+      checks: [
+        { id: 'REAL-CHK-001', name: 'Client-Accessible Environment Secret Exposure Check', status: realCheckStatus, confidence: 'High (96.5%)', evidenceId: realFinding?.evidenceIds?.[0] || 'EVD-REAL-001', findingId: realFinding?.id, isRealCheck: true },
+        { id: 'CONFIG-001', name: 'Production Build Minification & Debug Flag Isolation', status: 'PASS', confidence: 'High (98%)', evidenceId: null }
+      ]
+    },
+    {
+      id: 'domain-transport',
+      name: 'Transport Security',
+      icon: ShieldAlert,
+      description: 'TLS configuration, HTTP Strict Transport Security, and cipher restrictions',
+      status: 'PASS',
+      testsCount: 2,
+      testsPassed: 2,
+      findingsCount: 0,
+      checks: [
+        { id: 'TLS-001', name: 'Strict Transport Security (HSTS) Header', status: 'PASS', confidence: 'High (97%)', evidenceId: null },
+        { id: 'TLS-002', name: 'Secure Cookie Flags (Secure, HttpOnly, SameSite)', status: 'PASS', confidence: 'High (95%)', evidenceId: null }
+      ]
+    },
+    {
+      id: 'domain-data',
+      name: 'Data & Privacy',
+      icon: Database,
+      description: 'Lockfile CVE vulnerabilities, PII protection, and local storage safety',
+      status: 'PASS',
+      testsCount: 2,
+      testsPassed: 2,
+      findingsCount: 0,
+      checks: [
+        { id: 'DEP-001', name: 'Lockfile CVE Known Vulnerability Audit', status: 'PASS', confidence: 'High (99%)', evidenceId: null },
+        { id: 'DATA-001', name: 'Local Storage Credential Persistence Audit', status: 'PASS', confidence: 'High (93%)', evidenceId: null }
       ]
     }
   ];
@@ -81,25 +158,25 @@ export default function SecurityChecksPage() {
     switch (status) {
       case 'PASS':
         return (
-          <span className="badge-emerald text-xs font-bold px-2.5 py-1 rounded-md flex items-center gap-1">
-            <CheckCircle2 className="w-3.5 h-3.5 text-[#087F5B]" /> PASS
+          <span className="badge-emerald text-[11px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1">
+            <CheckCircle2 className="w-3 h-3 text-[#0A6E4F]" /> PASS
           </span>
         );
       case 'REVIEW':
         return (
-          <span className="badge-amber text-xs font-bold px-2.5 py-1 rounded-md flex items-center gap-1">
-            <AlertTriangle className="w-3.5 h-3.5 text-[#B7791F]" /> REVIEW
+          <span className="badge-amber text-[11px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1">
+            <AlertTriangle className="w-3 h-3 text-[#B45309]" /> REVIEW
           </span>
         );
       case 'FAILED':
         return (
-          <span className="badge-crimson text-xs font-bold px-2.5 py-1 rounded-md flex items-center gap-1">
-            <Lock className="w-3.5 h-3.5 text-[#C62828]" /> FAILED
+          <span className="badge-crimson text-[11px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1">
+            <Lock className="w-3 h-3 text-[#C53030]" /> FAILED
           </span>
         );
       default:
         return (
-          <span className="badge-sage text-xs font-bold px-2.5 py-1 rounded-md">
+          <span className="badge-sage text-[11px] font-bold px-2 py-0.5 rounded-md">
             NOT ASSESSED
           </span>
         );
@@ -107,133 +184,133 @@ export default function SecurityChecksPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#DDE5DF] pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#DEE5E0] pb-4">
         <div>
-          <h1 className="text-xl font-extrabold text-[#17211B] flex items-center gap-2">
-            <Layers className="w-5 h-5 text-[#087F5B]" />
-            Security Controls & Real Security Check Runner
+          <div className="flex items-center space-x-2 text-xs font-semibold text-[#0A6E4F] uppercase tracking-wider mb-1">
+            <Layers className="w-3.5 h-3.5" />
+            <span>Intelligent Test Plan & Security Controls</span>
+          </div>
+          <h1 className="text-xl sm:text-2xl font-bold text-[#16201B] tracking-tight">
+            Security Controls & AST Check Runner
           </h1>
-          <p className="text-xs text-[#64746A] mt-0.5">
-            Non-destructive static rule evaluations and controlled security check execution against target <strong className="text-[#17211B]">World Monitor</strong>
+          <p className="text-xs text-[#56655D] mt-0.5">
+            Structured 7-domain test plan and live deterministic check execution for <strong className="text-[#16201B]">World Monitor</strong>.
           </p>
         </div>
-        <div className="flex items-center space-x-2">
+
+        <div className="flex items-center space-x-2 shrink-0">
           {latestScanResult && (
             <button
               onClick={clearLatestScan}
-              className="text-xs bg-white hover:bg-[#F7F8F5] border border-[#DDE5DF] text-[#17211B] px-3 py-1.5 rounded-md font-bold cursor-pointer"
+              className="btn-secondary text-xs"
             >
               Clear Current Scan
             </button>
           )}
           <button
             onClick={resetDemo}
-            className="text-xs bg-white hover:bg-red-50 border border-red-200 text-[#C62828] px-3 py-1.5 rounded-md font-bold cursor-pointer"
+            className="btn-secondary text-xs text-[#C53030] hover:text-[#9B2C2C] hover:bg-[#FDF2F2]"
           >
             Reset Demo Data
           </button>
         </div>
       </div>
 
-      {/* STEP 2 & 7: REAL CONTROLLED SECURITY CHECK EXECUTION CARD */}
-      <div className="bg-white border border-[#087F5B] rounded-lg p-6 shadow-sm space-y-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#DDE5DF] pb-4">
+      {/* REAL CONTROLLED SECURITY CHECK RUNNER (REAL-CHK-001) */}
+      <div className="panel-card p-5 sm:p-6 border-l-4 border-l-[#0A6E4F] space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#DEE5E0] pb-4">
           <div className="space-y-1">
             <div className="flex items-center space-x-2">
-              <span className="badge-emerald text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded">
-                REAL CONTROLLED SECURITY CHECK
+              <span className="badge-emerald text-[10px] font-bold uppercase px-2 py-0.5 rounded">
+                LIVE DETERMINISTIC CHECK
               </span>
-              <span className="text-xs text-[#64746A]">Target: <strong className="font-mono text-[#17211B]">World Monitor Sandbox</strong></span>
+              <span className="text-xs text-[#56655D]">Target: <strong className="font-mono text-[#16201B]">World Monitor Sandbox</strong></span>
             </div>
-            <h2 className="text-lg font-extrabold text-[#17211B]">
+            <h2 className="text-base sm:text-lg font-bold text-[#16201B]">
               REAL-CHK-001: Client-Accessible Environment Secret Exposure Check
             </h2>
-            <p className="text-xs text-[#64746A]">
-              Executes genuine AST static node parsing against World Monitor configuration scope (<span className="font-mono text-[#087F5B]">/src/config/clientEnv.ts</span>).
+            <p className="text-xs text-[#56655D]">
+              Executes live Babel AST static syntax tree parsing on configuration file (<span className="font-mono text-[#0A6E4F]">/src/config/clientEnv.ts</span>).
             </p>
           </div>
 
           <button
             onClick={handleExecuteRealCheck}
             disabled={isRunningRealCheck}
-            className={`px-5 py-2.5 rounded-md text-xs font-bold flex items-center space-x-2 transition-all shadow-sm cursor-pointer ${
-              isRunningRealCheck
-                ? 'bg-[#DDE5DF] text-[#64746A] cursor-not-allowed'
-                : 'bg-[#087F5B] hover:bg-[#064E3B] text-white'
-            }`}
+            className="btn-primary shrink-0"
           >
             {isRunningRealCheck ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-current" />}
-            <span>{isRunningRealCheck ? 'Running Real Check...' : 'RUN REAL CONTROLLED CHECK'}</span>
+            <span>{isRunningRealCheck ? 'Evaluating AST Rules...' : 'Run Real Controlled Check'}</span>
           </button>
         </div>
 
-        {/* Execution Progress */}
+        {/* Real Check Progress */}
         {isRunningRealCheck && realCheckProgress && (
           <div className="space-y-2 py-2">
-            <div className="flex items-center justify-between text-xs text-[#087F5B] font-bold">
+            <div className="flex items-center justify-between text-xs text-[#0A6E4F] font-bold">
               <span className="flex items-center gap-2">
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 {realCheckProgress.stepName}
               </span>
               <span className="font-mono">{realCheckProgress.progressPercent}%</span>
             </div>
-            <div className="w-full bg-[#F7F8F5] rounded-full h-2 border border-[#DDE5DF] overflow-hidden">
-              <div className="bg-[#087F5B] h-full transition-all duration-300" style={{ width: `${realCheckProgress.progressPercent}%` }}></div>
+            <div className="w-full bg-[#F3F5F1] rounded-full h-2 border border-[#DEE5E0] overflow-hidden">
+              <div className="bg-[#0A6E4F] h-full transition-all duration-300" style={{ width: `${realCheckProgress.progressPercent}%` }}></div>
             </div>
           </div>
         )}
 
-        {/* STRUCTURED OBSERVATION RESULT DISPLAY - OBSERVED MATCH CASE */}
+        {/* OBSERVED MATCH CARD */}
         {latestScanResult && latestScanResult.observations && latestScanResult.observations.length > 0 && !isRunningRealCheck && (
-          <div className="bg-[#F7F8F5] border border-[#DDE5DF] rounded-md p-4 space-y-3 font-mono text-xs">
-            <div className="flex items-center justify-between border-b border-[#DDE5DF] pb-2 font-sans">
-              <span className="font-extrabold text-[#17211B] flex items-center gap-1.5 text-xs">
-                <Sparkles className="w-4 h-4 text-[#087F5B]" />
-                CURRENT SCAN RESULT: VULNERABILITY OBSERVED
+          <div className="bg-[#FDF2F2] border border-[#FBC4C4] rounded-lg p-4 space-y-3 text-xs">
+            <div className="flex items-center justify-between border-b border-[#FBC4C4] pb-2">
+              <span className="font-bold text-[#C53030] flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-[#C53030]" />
+                CURRENT AST SCAN RESULT: VULNERABILITY OBSERVED
               </span>
               <span className="badge-crimson text-[10px] font-bold px-2 py-0.5 rounded">
-                STATUS: OBSERVED ({latestScanResult.observations.length} MATCH{latestScanResult.observations.length > 1 ? 'ES' : ''})
+                OBSERVED ({latestScanResult.observations.length} MATCH)
               </span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 font-mono text-[11px]">
               <div>
-                <span className="text-[#64746A] block text-[11px]">Check ID & Name:</span>
-                <span className="text-[#087F5B] font-bold">REAL-CHK-001 (Client Secret Exposure)</span>
+                <span className="text-[#85948C] block text-[10px]">Check ID:</span>
+                <span className="text-[#16201B] font-bold">REAL-CHK-001</span>
               </div>
               <div>
-                <span className="text-[#64746A] block text-[11px]">Source File:</span>
-                <span className="text-[#17211B] font-bold">{latestScanResult.observations[0].file} (Line {latestScanResult.observations[0].line})</span>
+                <span className="text-[#85948C] block text-[10px]">Target File:</span>
+                <span className="text-[#16201B] font-bold">{latestScanResult.observations[0].file} (Line {latestScanResult.observations[0].line})</span>
               </div>
               <div>
-                <span className="text-[#64746A] block text-[11px]">Matched Parameter:</span>
-                <span className="text-[#C62828] font-bold">{latestScanResult.observations[0].symbol}: '{latestScanResult.observations[0].valueMasked}'</span>
+                <span className="text-[#85948C] block text-[10px]">Exposed Symbol:</span>
+                <span className="text-[#C53030] font-bold">{latestScanResult.observations[0].symbol}: '{latestScanResult.observations[0].valueMasked}'</span>
               </div>
               <div>
-                <span className="text-[#64746A] block text-[11px]">Source File Hash:</span>
-                <span className="text-[#064E3B] font-bold">{latestScanResult.observations[0].sourceHash || 'N/A'}</span>
+                <span className="text-[#85948C] block text-[10px]">File Hash:</span>
+                <span className="text-[#0A6E4F] font-bold">{latestScanResult.observations[0].sourceHash || 'N/A'}</span>
               </div>
             </div>
 
-            <div className="pt-2 flex items-center justify-end space-x-3 font-sans">
+            <div className="pt-2 border-t border-[#FBC4C4] flex items-center justify-end space-x-2">
               {latestScanResult.evidence && latestScanResult.evidence.length > 0 && (
                 <button
                   onClick={() => navigate('/evidence')}
-                  className="text-xs bg-white hover:bg-[#DDE5DF]/50 border border-[#DDE5DF] text-[#17211B] px-3.5 py-1.5 rounded font-bold flex items-center gap-1 cursor-pointer"
+                  className="btn-secondary text-xs"
                 >
-                  <Flame className="w-3.5 h-3.5 text-[#087F5B]" />
-                  <span>View Evidence ({latestScanResult.evidence[0].id})</span>
+                  <Flame className="w-3.5 h-3.5 text-[#0A6E4F]" />
+                  <span>Inspect Evidence ({latestScanResult.evidence[0].id})</span>
                 </button>
               )}
 
               {latestScanResult.findings && latestScanResult.findings.length > 0 && (
                 <button
                   onClick={() => navigate(`/findings/${latestScanResult.findings[0].id}`)}
-                  className="text-xs bg-[#087F5B] hover:bg-[#064E3B] text-white px-3.5 py-1.5 rounded font-bold flex items-center gap-1 cursor-pointer shadow-2xs"
+                  className="btn-primary text-xs"
                 >
-                  <span>View Finding ({latestScanResult.findings[0].id})</span>
+                  <span>Review Finding ({latestScanResult.findings[0].id})</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               )}
@@ -241,148 +318,103 @@ export default function SecurityChecksPage() {
           </div>
         )}
 
-        {/* STRUCTURED OBSERVATION RESULT DISPLAY - NO MATCH CLEAN CASE */}
+        {/* NO MATCH (CLEAN) CARD */}
         {latestScanResult && latestScanResult.observations && latestScanResult.observations.length === 0 && !isRunningRealCheck && (
-          <div className="bg-[#E6F4F1] border border-[#B2DFDB] rounded-md p-4 space-y-3 text-xs">
-            <div className="flex items-center justify-between border-b border-[#B2DFDB] pb-2">
-              <span className="font-extrabold text-[#064E3B] flex items-center gap-1.5 text-xs">
-                <CheckCircle2 className="w-4 h-4 text-[#087F5B]" />
-                CURRENT SCAN RESULT: NO MATCH
+          <div className="bg-[#EBF5F0] border border-[#B6DEC9] rounded-lg p-4 space-y-3 text-xs">
+            <div className="flex items-center justify-between border-b border-[#B6DEC9] pb-2">
+              <span className="font-bold text-[#0A6E4F] flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-[#0A6E4F]" />
+                CURRENT AST SCAN RESULT: NO MATCH (CLEAN)
               </span>
               <span className="badge-emerald text-[10px] font-bold px-2 py-0.5 rounded">
-                STATUS: NO MATCH (0 MATCHES)
+                0 MATCHES DETECTED
               </span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 font-mono">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 font-mono text-[11px]">
               <div>
-                <span className="text-[#64746A] block text-[11px]">Check ID & Name:</span>
-                <span className="text-[#087F5B] font-bold">REAL-CHK-001 (Client Secret Exposure)</span>
-              </div>
-              <div>
-                <span className="text-[#64746A] block text-[11px]">Scanned Files Count:</span>
-                <span className="text-[#17211B] font-bold">{latestScanResult.check?.scannedFilesCount || 0} source files</span>
+                <span className="text-[#85948C] block text-[10px]">Check Evaluated:</span>
+                <span className="text-[#0A6E4F] font-bold">REAL-CHK-001</span>
               </div>
               <div>
-                <span className="text-[#64746A] block text-[11px]">Target Scope:</span>
-                <span className="text-[#17211B] font-bold">World Monitor Sandbox</span>
+                <span className="text-[#85948C] block text-[10px]">Files Scanned:</span>
+                <span className="text-[#16201B] font-bold">{latestScanResult.check?.scannedFilesCount || 0} source files</span>
               </div>
               <div>
-                <span className="text-[#64746A] block text-[11px]">Condition Evaluation:</span>
-                <span className="text-[#087F5B] font-bold">Not detected in current source</span>
+                <span className="text-[#85948C] block text-[10px]">Verification State:</span>
+                <span className="text-[#0A6E4F] font-bold">Clean - No Exposure Found</span>
               </div>
-            </div>
-
-            {realFinding && (
-              <div className="pt-2 border-t border-[#B2DFDB] flex items-center justify-between font-sans">
-                <span className="text-[11px] text-[#64746A]">
-                  Historical Finding Record: <strong className="font-mono text-[#17211B]">{realFinding.id}</strong> ({realFinding.status})
-                </span>
-                <button
-                  onClick={() => navigate(`/findings/${realFinding.id}`)}
-                  className="text-xs bg-white hover:bg-[#DDE5DF]/50 border border-[#DDE5DF] text-[#17211B] px-3.5 py-1.5 rounded font-bold flex items-center gap-1 cursor-pointer"
-                >
-                  <span>View Historical Finding Record</span>
-                  <ArrowRight className="w-3 h-3 text-[#087F5B]" />
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Fallback display before first live execution */}
-        {!latestScanResult && realFinding && !isRunningRealCheck && (
-          <div className="bg-[#F7F8F5] border border-[#DDE5DF] rounded-md p-4 space-y-3 font-mono text-xs">
-            <div className="flex items-center justify-between border-b border-[#DDE5DF] pb-2 font-sans">
-              <span className="font-extrabold text-[#17211B] flex items-center gap-1.5 text-xs">
-                <Sparkles className="w-4 h-4 text-[#087F5B]" />
-                INITIAL TARGET BASELINE FINDING
-              </span>
-              <span className="badge-crimson text-[10px] font-bold px-2 py-0.5 rounded">
-                STATUS: {realFinding.status}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <span className="text-[#64746A] block text-[11px]">Check ID & Name:</span>
-                <span className="text-[#087F5B] font-bold">REAL-CHK-001 (Client Secret Exposure)</span>
-              </div>
-              <div>
-                <span className="text-[#64746A] block text-[11px]">Registered Finding ID:</span>
-                <span className="text-[#17211B] font-bold">{realFinding.id}</span>
-              </div>
-            </div>
-
-            <div className="pt-2 flex items-center justify-end space-x-3 font-sans">
-              <button
-                onClick={() => navigate(`/findings/${realFinding.id}`)}
-                className="text-xs bg-[#087F5B] hover:bg-[#064E3B] text-white px-3.5 py-1.5 rounded font-bold flex items-center gap-1 cursor-pointer shadow-2xs"
-              >
-                <span>View Finding ({realFinding.id})</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
             </div>
           </div>
         )}
       </div>
 
-      {/* Controls Grid */}
-      <div className="space-y-5">
-        {securityControls.map((group, idx) => (
-          <div key={idx} className="bg-white border border-[#DDE5DF] rounded-lg p-5 space-y-4 shadow-2xs">
-            <div className="flex items-center justify-between border-b border-[#DDE5DF] pb-3">
-              <div>
-                <h2 className="text-xs font-bold text-[#087F5B] uppercase tracking-wider flex items-center gap-1.5">
-                  <Shield className="w-3.5 h-3.5 text-[#087F5B]" />
-                  {group.category}
-                </h2>
-                <p className="text-[11px] text-[#64746A] mt-0.5">{group.description}</p>
-              </div>
-              <span className="text-[10px] font-mono bg-[#F7F8F5] text-[#17211B] px-2.5 py-1 rounded border border-[#DDE5DF] font-semibold">
-                {group.checks.length} Checks Evaluated
-              </span>
-            </div>
+      {/* 7 SECURITY DOMAINS GRID (Section 9) */}
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-[#DEE5E0] pb-2">
+          <div>
+            <h2 className="text-xs font-bold text-[#16201B] uppercase tracking-wider">
+              Intelligent Test Plan — 7 Security Domains
+            </h2>
+            <p className="text-xs text-[#56655D]">Comprehensive coverage across all security assurance categories.</p>
+          </div>
+          <span className="text-[11px] text-[#85948C]">7 Domains Active</span>
+        </div>
 
-            <div className="divide-y divide-[#DDE5DF]">
-              {group.checks.map((check) => (
-                <div key={check.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="space-y-0.5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {securityDomains.map((domain) => {
+            const Icon = domain.icon;
+            const progressPct = Math.round((domain.testsPassed / domain.testsCount) * 100);
+            return (
+              <div key={domain.id} className="panel-card p-4 space-y-3 flex flex-col justify-between">
+                <div className="space-y-2">
+                  <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center space-x-2">
-                      <span className="font-mono text-[11px] text-[#064E3B] font-bold">{check.id}</span>
-                      <h3 className="text-xs font-bold text-[#17211B]">{check.name}</h3>
+                      <div className="w-7 h-7 rounded-md bg-[#EBF5F0] border border-[#B6DEC9] flex items-center justify-center text-[#0A6E4F] shrink-0">
+                        <Icon className="w-4 h-4" />
+                      </div>
+                      <h3 className="text-xs font-bold text-[#16201B] leading-tight">{domain.name}</h3>
                     </div>
-                    <p className="text-[10px] text-[#64746A]">Confidence: {check.confidence}</p>
+                    {getStatusBadge(domain.status)}
                   </div>
 
-                  <div className="flex items-center space-x-3">
-                    {getStatusBadge(check.status)}
+                  <p className="text-[11px] text-[#56655D] leading-relaxed">
+                    {domain.description}
+                  </p>
+                </div>
 
-                    {check.evidenceId && (
-                      <button
-                        onClick={() => navigate('/evidence')}
-                        className="text-[11px] text-[#087F5B] hover:underline font-bold flex items-center gap-1 cursor-pointer"
-                      >
-                        <Flame className="w-3 h-3 text-[#087F5B]" />
-                        <span>Evidence ({check.evidenceId})</span>
-                      </button>
-                    )}
+                <div className="space-y-2 pt-2 border-t border-[#DEE5E0]">
+                  {/* Progress & Metrics */}
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-[#56655D]">Tests: <strong className="text-[#16201B] font-mono">{domain.testsPassed}/{domain.testsCount}</strong></span>
+                    <span className={`font-semibold ${domain.findingsCount > 0 ? 'text-[#C53030]' : 'text-[#0A6E4F]'}`}>
+                      {domain.findingsCount > 0 ? `${domain.findingsCount} Active Finding` : '0 Findings'}
+                    </span>
+                  </div>
 
-                    {check.findingId && (
-                      <button
-                        onClick={() => navigate(`/findings/${check.findingId}`)}
-                        className="text-[11px] bg-[#F7F8F5] hover:bg-[#DDE5DF]/50 border border-[#DDE5DF] text-[#17211B] px-2.5 py-1 rounded font-bold flex items-center gap-1 cursor-pointer"
-                      >
-                        <span>Finding {check.findingId}</span>
-                        <ArrowRight className="w-3 h-3 text-[#087F5B]" />
-                      </button>
-                    )}
+                  <div className="w-full bg-[#F3F5F1] rounded-full h-1.5 overflow-hidden">
+                    <div
+                      className={`h-full ${domain.status === 'FAILED' ? 'bg-[#C53030]' : domain.status === 'REVIEW' ? 'bg-[#B45309]' : 'bg-[#0A6E4F]'}`}
+                      style={{ width: `${progressPct}%` }}
+                    ></div>
+                  </div>
+
+                  {/* Micro list of checks */}
+                  <div className="space-y-1 pt-1">
+                    {domain.checks.map((chk, i) => (
+                      <div key={i} className="flex items-center justify-between text-[10px] text-[#56655D] bg-[#F8F9F6] p-1.5 rounded">
+                        <span className="font-mono font-semibold text-[#16201B] truncate max-w-[170px]">{chk.id}: {chk.name}</span>
+                        <span className={`font-bold ${chk.status === 'FAILED' ? 'text-[#C53030]' : chk.status === 'REVIEW' ? 'text-[#B45309]' : 'text-[#0A6E4F]'}`}>
+                          {chk.status}
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        ))}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

@@ -1,31 +1,40 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Play, Shield, Server, UserCheck, Plus, UserCog, RefreshCw } from 'lucide-react';
+import { Play, Shield, Server, UserCheck, Plus, RefreshCw, Menu } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
-export default function Header() {
+export default function Header({ onToggleMobileMenu }) {
   const navigate = useNavigate();
-  const { activeTarget, activeAssessmentId, triggerAssessment, user, userRole, setUserRole, refreshData, resetDemo, showToast } = useApp();
+  const { activeTarget, activeAssessmentId, triggerAssessment, user, userRole, setUserRole, resetDemo } = useApp();
 
   return (
-    <header className="h-16 bg-white border-b border-[#DDE5DF] px-6 flex items-center justify-between sticky top-0 z-20 shadow-2xs">
-      {/* Target & Assessment Info */}
-      <div className="flex items-center space-x-3">
-        <div className="flex items-center space-x-2 bg-[#F7F8F5] border border-[#DDE5DF] px-3 py-1.5 rounded-md">
-          <Server className="w-3.5 h-3.5 text-[#087F5B]" />
-          <span className="text-xs text-[#64746A]">Target:</span>
-          <span className="text-xs font-bold text-[#17211B]">{activeTarget}</span>
+    <header className="h-16 bg-[#FFFFFF] border-b border-[#DEE5DF] px-3 sm:px-6 flex items-center justify-between sticky top-0 z-20 shadow-2xs">
+      {/* Left: Mobile Menu Toggle + Target & Assessment Badges */}
+      <div className="flex items-center space-x-2 sm:space-x-3">
+        <button
+          onClick={onToggleMobileMenu}
+          className="lg:hidden p-2 rounded-md text-[#56655D] hover:text-[#16201B] hover:bg-[#F3F5F1] transition-colors focus:outline-none focus:ring-2 focus:ring-[#0A6E4F]"
+          aria-label="Toggle navigation drawer"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+
+        <div className="flex items-center space-x-2 bg-[#F8F9F6] border border-[#DEE5E0] px-2.5 sm:px-3 py-1.5 rounded-md text-xs">
+          <Server className="w-3.5 h-3.5 text-[#0A6E4F] shrink-0" />
+          <span className="hidden sm:inline text-[#56655D] font-medium">Target:</span>
+          <span className="font-semibold text-[#16201B] truncate max-w-[110px] sm:max-w-[150px]">{activeTarget}</span>
         </div>
 
-        <div className="flex items-center space-x-2 bg-[#F7F8F5] border border-[#DDE5DF] px-3 py-1.5 rounded-md">
-          <Shield className="w-3.5 h-3.5 text-[#064E3B]" />
-          <span className="text-xs text-[#64746A]">Assessment:</span>
-          <span className="text-xs font-bold text-[#064E3B] font-mono">{activeAssessmentId}</span>
+        <div className="hidden md:flex items-center space-x-2 bg-[#F8F9F6] border border-[#DEE5E0] px-2.5 sm:px-3 py-1.5 rounded-md text-xs">
+          <Shield className="w-3.5 h-3.5 text-[#0A6E4F] shrink-0" />
+          <span className="text-[#56655D] font-medium">Assessment:</span>
+          <span className="font-semibold text-[#0A6E4F] font-mono">{activeAssessmentId}</span>
         </div>
       </div>
 
-      {/* Primary Actions, Role Switcher & User info */}
-      <div className="flex items-center space-x-3">
+      {/* Right: Actions, Role Selector & Assessor Info */}
+      <div className="flex items-center space-x-2 sm:space-x-3">
+        {/* Start Assessment CTA */}
         <button
           onClick={async () => {
             const res = await triggerAssessment(activeTarget);
@@ -33,52 +42,60 @@ export default function Header() {
               navigate(`/assessments/${res.assessmentId}`);
             }
           }}
-          className="flex items-center space-x-2 bg-[#087F5B] hover:bg-[#064E3B] text-white px-4 py-2 rounded-md text-xs font-bold tracking-wide transition-all shadow-sm active:scale-95 cursor-pointer"
+          className="btn-primary"
+          title="Start security assessment against target"
         >
-          <Play className="w-3.5 h-3.5 fill-current" />
-          <span>START ASSESSMENT</span>
+          <Play className="w-3.5 h-3.5 fill-current shrink-0" />
+          <span className="hidden sm:inline">Start Assessment</span>
+          <span className="sm:hidden">Run</span>
         </button>
 
+        {/* Reset Demo Button */}
         <button
           onClick={() => resetDemo()}
-          className="flex items-center space-x-1.5 bg-white hover:bg-[#F7F8F5] border border-[#DDE5DF] text-[#17211B] px-3 py-2 rounded-md text-xs font-semibold transition-colors cursor-pointer"
+          className="btn-secondary hidden sm:inline-flex"
           title="Reset findings to baseline demo state"
         >
-          <RefreshCw className="w-3.5 h-3.5 text-[#087F5B]" />
+          <RefreshCw className="w-3.5 h-3.5 text-[#0A6E4F]" />
           <span>Reset Demo</span>
         </button>
 
+        {/* New Scope CTA */}
         <button
           onClick={() => navigate('/assessments/new')}
-          className="flex items-center space-x-1.5 bg-white hover:bg-[#F7F8F5] border border-[#DDE5DF] text-[#17211B] px-3 py-2 rounded-md text-xs font-semibold transition-colors cursor-pointer"
+          className="btn-secondary hidden md:inline-flex"
+          title="Define new assessment scope"
         >
-          <Plus className="w-3.5 h-3.5 text-[#087F5B]" />
+          <Plus className="w-3.5 h-3.5 text-[#0A6E4F]" />
           <span>New Scope</span>
         </button>
 
-        <div className="h-4 w-px bg-[#DDE5DF]"></div>
+        <div className="hidden sm:block h-4 w-px bg-[#DEE5E0]"></div>
 
-        {/* Role Selector Component */}
-        <div className="flex items-center space-x-1.5 bg-[#F7F8F5] border border-[#DDE5DF] px-2.5 py-1 rounded-md">
-          <UserCog className="w-3.5 h-3.5 text-[#087F5B]" />
-          <span className="text-[11px] text-[#64746A] font-bold">Role:</span>
+        {/* Role Selector with Accessibility attributes */}
+        <div className="flex items-center space-x-1.5 bg-[#F8F9F6] border border-[#DEE5E0] px-2 sm:px-2.5 py-1 rounded-md text-xs">
+          <label htmlFor="user-role-select" className="sr-only">Switch User Role</label>
+          <span className="hidden sm:inline text-[11px] font-semibold text-[#85948C]">Role:</span>
           <select
+            id="user-role-select"
+            name="userRole"
             value={userRole}
             onChange={(e) => setUserRole(e.target.value)}
-            className="bg-transparent text-[11px] font-bold text-[#17211B] outline-none cursor-pointer"
+            className="bg-transparent text-[11px] font-bold text-[#16201B] outline-none cursor-pointer focus:ring-1 focus:ring-[#0A6E4F] rounded"
           >
-            <option value="SECURITY_ANALYST">SECURITY_ANALYST</option>
+            <option value="SECURITY_ANALYST">ANALYST</option>
             <option value="DEVELOPER">DEVELOPER</option>
           </select>
         </div>
 
-        <div className="flex items-center space-x-2.5">
-          <div className="w-8 h-8 rounded-full bg-[#087F5B]/10 border border-[#087F5B]/20 flex items-center justify-center text-[#087F5B]">
+        {/* Assessor Avatar / Info */}
+        <div className="flex items-center space-x-2 pl-1">
+          <div className="w-8 h-8 rounded-full bg-[#EBF5F0] border border-[#B6DEC9] flex items-center justify-center text-[#0A6E4F] shrink-0 font-bold text-xs" title={`${user.name} (${userRole})`}>
             <UserCheck className="w-4 h-4" />
           </div>
-          <div className="hidden md:block">
-            <p className="text-xs font-bold text-[#17211B] leading-tight">{user.name}</p>
-            <p className="text-[10px] text-[#087F5B] font-bold">{user.role}</p>
+          <div className="hidden xl:block text-left">
+            <p className="text-xs font-semibold text-[#16201B] leading-tight">{user.name}</p>
+            <p className="text-[10px] text-[#0A6E4F] font-medium">{user.role}</p>
           </div>
         </div>
       </div>

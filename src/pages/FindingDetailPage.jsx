@@ -1,21 +1,12 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
-  ShieldAlert, 
   ArrowLeft, 
   Flame, 
   CheckCircle2, 
   RotateCcw, 
-  Activity, 
-  FileCode, 
-  Layers, 
-  ShieldCheck,
-  Play,
-  ArrowRight,
-  Clock,
-  Sparkles,
-  Lock,
-  UserCheck,
+  Play, 
+  Clock, 
   AlertOctagon
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
@@ -40,12 +31,12 @@ export default function FindingDetailPage() {
 
   if (!finding) {
     return (
-      <div className="bg-white border border-[#DDE5DF] rounded-lg p-8 text-center space-y-3 shadow-2xs">
-        <h2 className="text-sm font-extrabold text-[#17211B]">Finding Record Not Found</h2>
-        <p className="text-xs text-[#64746A]">Finding ID <strong className="font-mono text-[#087F5B]">{id}</strong> was not found in the active finding store.</p>
+      <div className="panel-card p-8 text-center space-y-3">
+        <h2 className="text-sm font-bold text-[#16201B]">Finding Record Not Found</h2>
+        <p className="text-xs text-[#56655D]">Finding ID <strong className="font-mono text-[#0A6E4F]">{id}</strong> was not found in the active finding store.</p>
         <button
           onClick={() => navigate('/findings')}
-          className="bg-[#087F5B] hover:bg-[#064E3B] text-white px-4 py-2 rounded-md text-xs font-bold transition-all shadow-sm cursor-pointer"
+          className="btn-primary"
         >
           Back to Findings List
         </button>
@@ -58,9 +49,8 @@ export default function FindingDetailPage() {
     : (globalEvidenceList || []).filter(ev => ev.findingId === finding.id || (finding.evidenceIds && finding.evidenceIds.includes(ev.id)));
 
   const isAnalyst = userRole === 'SECURITY_ANALYST';
-  const isDeveloper = userRole === 'DEVELOPER';
 
-  // Master Prompt Section 15 Finding Lifecycle Stages
+  // Finding Lifecycle Stages
   const lifecycleStages = [
     { key: LIFECYCLE_STATES.DETECTED, label: 'Detected' },
     { key: LIFECYCLE_STATES.EVIDENCE_COLLECTED, label: 'Evidence Collected' },
@@ -104,45 +94,44 @@ export default function FindingDetailPage() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Top Header */}
-      <div className="bg-white border border-[#DDE5DF] rounded-lg p-6 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-start space-x-4">
+    <div className="space-y-6 animate-fade-in">
+      {/* Top Header Card */}
+      <div className="panel-card p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-start space-x-3.5 min-w-0">
           <button
             onClick={() => navigate('/findings')}
-            className="p-2 rounded-md bg-[#F7F8F5] border border-[#DDE5DF] text-[#17211B] hover:bg-[#DDE5DF]/50 cursor-pointer"
+            className="p-2 rounded-md bg-[#FFFFFF] border border-[#DEE5E0] text-[#16201B] hover:bg-[#F8F9F6] cursor-pointer shrink-0 transition-colors"
+            aria-label="Back to findings list"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
-          <div className="space-y-1">
-            <div className="flex items-center space-x-3">
-              <span className="font-mono text-xs font-bold text-[#087F5B] bg-[#E6F4F1] border border-[#B2DFDB] px-2.5 py-1 rounded-md">
+          <div className="space-y-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-mono text-xs font-bold text-[#0A6E4F] bg-[#EBF5F0] border border-[#B6DEC9] px-2 py-0.5 rounded">
                 {finding.id}
               </span>
-              <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-extrabold ${
+              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                 finding.severity === 'HIGH' ? 'badge-crimson' : 'badge-amber'
               }`}>
                 {finding.severity} SEVERITY
               </span>
-              <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-bold ${
+              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                 finding.status === 'VERIFIED' ? 'badge-emerald' : finding.status === 'REOPENED' ? 'badge-crimson' : 'badge-amber'
               }`}>
                 {finding.status}
               </span>
             </div>
-            <h1 className="text-xl font-extrabold text-[#17211B]">{finding.title}</h1>
-            <p className="text-xs text-[#64746A]">Category: {finding.category} • Component: {finding.component}</p>
+            <h1 className="text-lg sm:text-xl font-bold text-[#16201B] tracking-tight truncate">{finding.title}</h1>
+            <p className="text-xs text-[#56655D]">Category: {finding.category} • Component: {finding.component}</p>
           </div>
         </div>
 
         {/* State Machine Action Controls */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           {(finding.status === LIFECYCLE_STATES.AI_ANALYZED || finding.status === LIFECYCLE_STATES.DETECTED || finding.status === LIFECYCLE_STATES.EVIDENCE_COLLECTED) && (
             <button
               onClick={() => handleAnalystAction(() => validateFinding(finding.id))}
-              className={`px-4 py-2 rounded-md text-xs font-bold cursor-pointer transition-all ${
-                isAnalyst ? 'bg-[#087F5B] hover:bg-[#064E3B] text-white shadow-sm' : 'bg-[#F7F8F5] border border-[#DDE5DF] text-[#64746A]'
-              }`}
+              className={isAnalyst ? 'btn-primary' : 'btn-secondary opacity-60'}
             >
               Validate Finding (Analyst)
             </button>
@@ -151,7 +140,7 @@ export default function FindingDetailPage() {
           {finding.status === LIFECYCLE_STATES.VALIDATED && (
             <button
               onClick={() => openRemediation(finding.id)}
-              className="bg-[#087F5B] hover:bg-[#064E3B] text-white px-4 py-2 rounded-md text-xs font-bold cursor-pointer"
+              className="btn-primary"
             >
               Open Remediation
             </button>
@@ -160,7 +149,7 @@ export default function FindingDetailPage() {
           {finding.status === LIFECYCLE_STATES.REOPENED && (
             <button
               onClick={() => openRemediation(finding.id)}
-              className="bg-[#B7791F] hover:bg-[#925F18] text-white px-4 py-2 rounded-md text-xs font-bold cursor-pointer"
+              className="btn-secondary text-[#B45309] border-[#FDE5B5] bg-[#FEF7EA]"
             >
               Re-open Remediation (Dev)
             </button>
@@ -172,7 +161,7 @@ export default function FindingDetailPage() {
                 markReadyForRetest(finding.id);
                 navigate('/retesting');
               }}
-              className="bg-[#087F5B] hover:bg-[#064E3B] text-white px-4 py-2 rounded-md text-xs font-bold flex items-center space-x-1.5 cursor-pointer"
+              className="btn-primary"
             >
               <CheckCircle2 className="w-4 h-4" />
               <span>Mark Ready for Retest (Dev)</span>
@@ -182,9 +171,7 @@ export default function FindingDetailPage() {
           {(finding.status === LIFECYCLE_STATES.READY_FOR_RETEST || finding.status === LIFECYCLE_STATES.RETESTED) && (
             <button
               onClick={() => handleAnalystAction(() => navigate('/retesting'))}
-              className={`px-4 py-2 rounded-md text-xs font-bold flex items-center space-x-1.5 cursor-pointer transition-all ${
-                isAnalyst ? 'bg-[#087F5B] hover:bg-[#064E3B] text-white shadow-sm' : 'bg-[#F7F8F5] border border-[#DDE5DF] text-[#64746A]'
-              }`}
+              className={isAnalyst ? 'btn-primary' : 'btn-secondary opacity-60'}
             >
               <RotateCcw className="w-4 h-4" />
               <span>Execute Retest (Analyst)</span>
@@ -193,14 +180,14 @@ export default function FindingDetailPage() {
         </div>
       </div>
 
-      {/* Visual Finding Lifecycle Timeline Bar (Master Prompt Section 15) */}
-      <div className="bg-white border border-[#DDE5DF] rounded-lg p-5 shadow-2xs space-y-3">
-        <div className="flex items-center justify-between border-b border-[#DDE5DF] pb-2">
-          <h3 className="text-xs font-bold text-[#17211B] uppercase tracking-wider flex items-center gap-1.5">
-            <Clock className="w-4 h-4 text-[#087F5B]" />
-            CLOSED-LOOP FINDING LIFECYCLE TIMELINE
-          </h3>
-          <span className="text-[11px] font-bold text-[#087F5B]">State Machine Governed</span>
+      {/* Visual Finding Lifecycle Timeline Bar */}
+      <div className="panel-card p-4 space-y-3">
+        <div className="flex items-center justify-between border-b border-[#DEE5E0] pb-2">
+          <h2 className="text-xs font-bold text-[#16201B] uppercase tracking-wider flex items-center gap-1.5">
+            <Clock className="w-4 h-4 text-[#0A6E4F]" />
+            Closed-Loop Lifecycle State Machine
+          </h2>
+          <span className="text-[11px] font-semibold text-[#0A6E4F]">Deterministic Verification</span>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
@@ -212,27 +199,27 @@ export default function FindingDetailPage() {
             return (
               <div 
                 key={idx} 
-                className={`p-2.5 rounded-md border text-center space-y-1 ${
+                className={`p-2 rounded-md border text-center space-y-1 transition-all ${
                   isCompleted 
-                    ? 'bg-[#E6F4F1] border-[#B2DFDB] text-[#064E3B]' 
+                    ? 'bg-[#EBF5F0] border-[#B6DEC9] text-[#0A6E4F]' 
                     : isActive 
-                    ? 'bg-white border-[#087F5B] ring-1 ring-[#087F5B] text-[#17211B]' 
+                    ? 'bg-white border-[#0A6E4F] ring-1 ring-[#0A6E4F] text-[#16201B] shadow-xs' 
                     : isFailed
-                    ? 'bg-red-50 border-red-200 text-[#C62828]'
-                    : 'bg-[#F7F8F5] border-[#DDE5DF] text-[#64746A]'
+                    ? 'bg-[#FDF2F2] border-[#FBC4C4] text-[#C53030]'
+                    : 'bg-[#F8F9F6] border-[#DEE5E0] text-[#85948C]'
                 }`}
               >
                 <div className="flex items-center justify-center space-x-1">
                   {isCompleted ? (
-                    <CheckCircle2 className="w-3.5 h-3.5 text-[#087F5B]" />
+                    <CheckCircle2 className="w-3.5 h-3.5 text-[#0A6E4F]" />
                   ) : isActive ? (
-                    <span className="w-2 h-2 rounded-full bg-[#087F5B] animate-pulse"></span>
+                    <span className="w-2 h-2 rounded-full bg-[#0A6E4F] animate-pulse"></span>
                   ) : isFailed ? (
-                    <AlertOctagon className="w-3.5 h-3.5 text-[#C62828]" />
+                    <AlertOctagon className="w-3.5 h-3.5 text-[#C53030]" />
                   ) : (
-                    <span className="w-2 h-2 rounded-full bg-[#DDE5DF]"></span>
+                    <span className="w-2 h-2 rounded-full bg-[#DEE5E0]"></span>
                   )}
-                  <span className="text-[10px] font-extrabold uppercase">{stage.label}</span>
+                  <span className="text-[10px] font-bold uppercase truncate">{stage.label}</span>
                 </div>
               </div>
             );
@@ -240,20 +227,20 @@ export default function FindingDetailPage() {
         </div>
       </div>
 
-      {/* Grid: Details Tabs (Left) + AI Security Assistant (Right) */}
+      {/* Grid: Details Tabs (Left) + AI Security Copilot (Right) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: Tabs Content */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-5">
           {/* Tab Navigation */}
-          <div className="flex border-b border-[#DDE5DF] space-x-2 bg-white p-1.5 rounded-lg border shadow-2xs">
+          <div className="flex flex-wrap gap-1.5 p-1 bg-[#FFFFFF] border border-[#DEE5E0] rounded-lg">
             {['Overview', 'Evidence', 'Impact', 'Remediation', 'Retest', 'Timeline'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-3.5 py-1.5 rounded-md text-xs font-bold transition-colors cursor-pointer ${
+                className={`px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                   activeTab === tab
-                    ? 'bg-[#087F5B] text-white shadow-2xs'
-                    : 'text-[#64746A] hover:text-[#17211B] hover:bg-[#F7F8F5]'
+                    ? 'bg-[#0A6E4F] text-white shadow-xs'
+                    : 'text-[#56655D] hover:text-[#16201B] hover:bg-[#F8F9F6]'
                 }`}
               >
                 {tab}
@@ -263,24 +250,26 @@ export default function FindingDetailPage() {
 
           {/* TAB 1: OVERVIEW */}
           {activeTab === 'Overview' && (
-            <div className="bg-white border border-[#DDE5DF] rounded-lg p-6 space-y-5 shadow-2xs">
-              <h2 className="text-xs font-bold text-[#17211B] uppercase tracking-wider">Finding Summary</h2>
-              <p className="text-xs text-[#17211B] leading-relaxed font-medium">{finding.description}</p>
+            <div className="panel-card p-6 space-y-5">
+              <div>
+                <h3 className="text-xs font-bold text-[#16201B] uppercase tracking-wider mb-1">Finding Description</h3>
+                <p className="text-xs text-[#16201B] leading-relaxed font-normal">{finding.description}</p>
+              </div>
 
-              <div className="border-t border-[#DDE5DF] pt-4 space-y-2">
-                <h3 className="text-xs font-bold text-[#17211B]">Root Cause</h3>
-                <p className="text-xs text-[#17211B] bg-[#F7F8F5] p-3.5 rounded-md border border-[#DDE5DF] font-mono">
-                  {finding.rootCause}
+              <div className="border-t border-[#DEE5E0] pt-4 space-y-2">
+                <h4 className="text-xs font-bold text-[#16201B]">Root Cause Evaluation</h4>
+                <p className="text-xs text-[#16201B] bg-[#F8F9F6] p-3.5 rounded-md border border-[#DEE5E0] font-mono leading-relaxed">
+                  {finding.rootCause || 'Root cause analyzed during AST static parser pass.'}
                 </p>
               </div>
 
-              <div className="border-t border-[#DDE5DF] pt-4 grid grid-cols-2 gap-4 text-xs">
+              <div className="border-t border-[#DEE5E0] pt-4 grid grid-cols-2 gap-4 text-xs">
                 <div>
-                  <span className="text-[#64746A] block text-[11px]">Validation State:</span>
-                  <span className="font-bold text-[#087F5B]">{finding.validation?.status || 'CONFIRMED'}</span>
+                  <span className="text-[#85948C] block text-[11px]">Validation State:</span>
+                  <span className="font-bold text-[#0A6E4F]">{finding.validation?.status || 'CONFIRMED'}</span>
                 </div>
                 <div>
-                  <span className="text-[#64746A] block text-[11px]">Current Retest Outcome:</span>
+                  <span className="text-[#85948C] block text-[11px]">Current Retest Outcome:</span>
                   <span className="font-bold text-[#064E3B]">{finding.retest?.status || 'PENDING'}</span>
                 </div>
               </div>
@@ -289,43 +278,43 @@ export default function FindingDetailPage() {
 
           {/* TAB 2: EVIDENCE */}
           {activeTab === 'Evidence' && (
-            <div className="bg-white border border-[#DDE5DF] rounded-lg p-6 space-y-5 shadow-2xs">
-              <div className="flex items-center justify-between border-b border-[#DDE5DF] pb-3">
-                <h2 className="text-xs font-bold text-[#17211B] uppercase tracking-wider flex items-center gap-2">
-                  <Flame className="w-4 h-4 text-[#087F5B]" />
-                  Captured HTTP & Repository Evidence ({evidenceList.length})
-                </h2>
+            <div className="panel-card p-6 space-y-5">
+              <div className="flex items-center justify-between border-b border-[#DEE5E0] pb-3">
+                <h3 className="text-xs font-bold text-[#16201B] uppercase tracking-wider flex items-center gap-2">
+                  <Flame className="w-4 h-4 text-[#0A6E4F]" />
+                  <span>Captured Repository & HTTP Evidence ({evidenceList.length})</span>
+                </h3>
               </div>
 
               {evidenceList.map((ev, idx) => (
-                <div key={idx} className="bg-[#F7F8F5] border border-[#DDE5DF] rounded-md p-4 space-y-4">
+                <div key={idx} className="bg-[#F8F9F6] border border-[#DEE5E0] rounded-md p-4 space-y-4">
                   <div className="flex items-center justify-between">
-                    <span className="font-mono text-xs font-bold text-[#087F5B]">{ev.id || `EVD-00${idx+1}`}</span>
-                    <span className="text-[10px] text-[#64746A]">{ev.timestamp || '2026-09-27'}</span>
+                    <span className="font-mono text-xs font-bold text-[#0A6E4F]">{ev.id || `EVD-00${idx+1}`}</span>
+                    <span className="text-[10px] text-[#85948C]">{ev.timestamp || '2026-09-27'}</span>
                   </div>
 
-                  <h3 className="text-xs font-bold text-[#17211B]">Rule: {ev.ruleEvaluated || 'AZ-002'}</h3>
+                  <h4 className="text-xs font-bold text-[#16201B]">Rule: {ev.ruleEvaluated || 'AZ-002'}</h4>
 
-                  <div className="space-y-1.5">
-                    <span className="text-[10px] font-bold text-[#64746A] uppercase">Observation</span>
-                    <p className="text-xs text-[#17211B] bg-white p-2.5 rounded border border-[#DDE5DF]">
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-bold text-[#85948C] uppercase">Observation</span>
+                    <p className="text-xs text-[#16201B] bg-white p-2.5 rounded border border-[#DEE5E0]">
                       {typeof ev.observation === 'string' ? ev.observation : JSON.stringify(ev.observation, null, 2)}
                     </p>
                   </div>
 
                   {ev.request && (
-                    <div className="space-y-1.5">
-                      <span className="text-[10px] font-bold text-[#64746A] uppercase">HTTP / Target Request Artifact</span>
-                      <pre className="bg-white border border-[#DDE5DF] p-3 rounded-md text-[11px] font-mono text-[#17211B] overflow-x-auto">
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-bold text-[#85948C] uppercase">HTTP / Target Request Artifact</span>
+                      <pre className="bg-white border border-[#DEE5E0] p-3 rounded-md text-[11px] font-mono text-[#16201B] overflow-x-auto">
 {typeof ev.request === 'string' ? ev.request : JSON.stringify(ev.request, null, 2)}
                       </pre>
                     </div>
                   )}
 
                   {ev.response && (
-                    <div className="space-y-1.5">
-                      <span className="text-[10px] font-bold text-[#64746A] uppercase">HTTP / Target Response Artifact</span>
-                      <pre className="bg-white border border-[#DDE5DF] p-3 rounded-md text-[11px] font-mono text-[#C62828] overflow-x-auto">
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-bold text-[#85948C] uppercase">HTTP / Target Response Artifact</span>
+                      <pre className="bg-white border border-[#DEE5E0] p-3 rounded-md text-[11px] font-mono text-[#C53030] overflow-x-auto">
 {typeof ev.response === 'string' ? ev.response : JSON.stringify(ev.response, null, 2)}
                       </pre>
                     </div>
@@ -337,18 +326,18 @@ export default function FindingDetailPage() {
 
           {/* TAB 3: IMPACT */}
           {activeTab === 'Impact' && (
-            <div className="bg-white border border-[#DDE5DF] rounded-lg p-6 space-y-4 shadow-2xs">
-              <h2 className="text-xs font-bold text-[#17211B] uppercase tracking-wider">Impact & Exploitability Analysis</h2>
+            <div className="panel-card p-6 space-y-4">
+              <h3 className="text-xs font-bold text-[#16201B] uppercase tracking-wider">Impact & Exploitability Analysis</h3>
               
               <div className="space-y-3">
-                <div className="bg-[#F7F8F5] border border-[#DDE5DF] p-4 rounded-md space-y-1">
-                  <h3 className="text-xs font-bold text-[#C62828]">Technical Impact</h3>
-                  <p className="text-xs text-[#17211B]">{finding.technicalImpact || finding.impact}</p>
+                <div className="bg-[#FDF2F2] border border-[#FBC4C4] p-4 rounded-md space-y-1">
+                  <h4 className="text-xs font-bold text-[#C53030]">Technical Impact</h4>
+                  <p className="text-xs text-[#16201B] leading-relaxed">{finding.technicalImpact || finding.impact}</p>
                 </div>
 
-                <div className="bg-[#F7F8F5] border border-[#DDE5DF] p-4 rounded-md space-y-1">
-                  <h3 className="text-xs font-bold text-[#B7791F]">Business Impact</h3>
-                  <p className="text-xs text-[#17211B]">{finding.businessImpact || finding.impact}</p>
+                <div className="bg-[#FEF7EA] border border-[#FDE5B5] p-4 rounded-md space-y-1">
+                  <h4 className="text-xs font-bold text-[#B45309]">Business & Compliance Impact</h4>
+                  <p className="text-xs text-[#16201B] leading-relaxed">{finding.businessImpact || finding.impact}</p>
                 </div>
               </div>
             </div>
@@ -356,20 +345,24 @@ export default function FindingDetailPage() {
 
           {/* TAB 4: REMEDIATION */}
           {activeTab === 'Remediation' && (
-            <div className="bg-white border border-[#DDE5DF] rounded-lg p-6 space-y-5 shadow-2xs">
-              <h2 className="text-xs font-bold text-[#17211B] uppercase tracking-wider">Recommended Fix & Developer Guidance</h2>
+            <div className="panel-card p-6 space-y-5">
+              <h3 className="text-xs font-bold text-[#16201B] uppercase tracking-wider">Recommended Fix & Developer Guidance</h3>
 
-              <div className="bg-[#E6F4F1] border border-[#B2DFDB] p-4 rounded-md space-y-1.5">
-                <h3 className="text-xs font-bold text-[#064E3B]">Recommended Fix</h3>
-                <p className="text-xs text-[#17211B] font-semibold">{finding.remediation?.recommendation || finding.remediation}</p>
+              <div className="bg-[#EBF5F0] border border-[#B6DEC9] p-4 rounded-md space-y-1.5">
+                <h4 className="text-xs font-bold text-[#064E3B]">Recommended Fix</h4>
+                <p className="text-xs text-[#16201B] font-semibold leading-relaxed">
+                  {typeof finding.remediation === 'object' && finding.remediation !== null
+                    ? finding.remediation.recommendation || 'Remediation guidance pending.'
+                    : finding.remediation || 'Remediation guidance pending.'}
+                </p>
               </div>
 
               <div className="space-y-2">
-                <h3 className="text-xs font-bold text-[#17211B]">Implementation Steps</h3>
-                <div className="bg-[#F7F8F5] border border-[#DDE5DF] p-4 rounded-md space-y-2 font-mono text-xs text-[#17211B]">
-                  {(finding.remediation?.implementationSteps || finding.implementationSteps)?.map((step, idx) => (
+                <h4 className="text-xs font-bold text-[#16201B]">Implementation Steps</h4>
+                <div className="bg-[#F8F9F6] border border-[#DEE5E0] p-4 rounded-md space-y-2 font-mono text-xs text-[#16201B]">
+                  {(finding.remediation?.implementationSteps || finding.implementationSteps || ['Isolate configuration values', 'Inject server-only process env', 'Verify clean state via retest runner']).map((step, idx) => (
                     <div key={idx} className="flex items-start space-x-2">
-                      <span className="text-[#087F5B] font-bold">•</span>
+                      <span className="text-[#0A6E4F] font-bold">•</span>
                       <span>{step}</span>
                     </div>
                   ))}
@@ -382,10 +375,10 @@ export default function FindingDetailPage() {
                     markReadyForRetest(finding.id);
                     navigate('/retesting');
                   }}
-                  className="bg-[#087F5B] hover:bg-[#064E3B] text-white px-5 py-2.5 rounded-md text-xs font-bold shadow-sm flex items-center space-x-2 cursor-pointer transition-all"
+                  className="btn-primary"
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>MARK READY FOR RETEST</span>
+                  <span>Mark Ready for Retest (Dev)</span>
                 </button>
               </div>
             </div>
@@ -393,45 +386,45 @@ export default function FindingDetailPage() {
 
           {/* TAB 5: RETEST */}
           {activeTab === 'Retest' && (
-            <div className="bg-white border border-[#DDE5DF] rounded-lg p-6 space-y-5 shadow-2xs">
-              <div className="flex items-center justify-between border-b border-[#DDE5DF] pb-3">
-                <h2 className="text-xs font-bold text-[#17211B] uppercase tracking-wider">Retesting & Verification Center</h2>
-                <span className="text-xs font-mono font-bold text-[#087F5B]">{finding.retest?.status || 'PENDING'}</span>
+            <div className="panel-card p-6 space-y-5">
+              <div className="flex items-center justify-between border-b border-[#DEE5E0] pb-3">
+                <h3 className="text-xs font-bold text-[#16201B] uppercase tracking-wider">Retesting & Verification Center</h3>
+                <span className="text-xs font-mono font-bold text-[#0A6E4F]">{finding.retest?.status || 'PENDING'}</span>
               </div>
 
-              <div className="bg-[#F7F8F5] border border-[#DDE5DF] p-4 rounded-md space-y-2 text-xs">
+              <div className="bg-[#F8F9F6] border border-[#DEE5E0] p-4 rounded-md space-y-2 text-xs">
                 <div>
-                  <span className="text-[#64746A] block text-[11px]">Previous Baseline Condition:</span>
-                  <span className="font-bold text-[#C62828] font-mono">{finding.retest?.previousCondition || 'Condition Detected'}</span>
+                  <span className="text-[#85948C] block text-[11px]">Previous Baseline Condition:</span>
+                  <span className="font-bold text-[#C53030] font-mono">{finding.retest?.previousCondition || 'Condition Detected'}</span>
                 </div>
                 {finding.retest?.currentCondition && (
                   <div>
-                    <span className="text-[#64746A] block text-[11px]">Current Retest Condition:</span>
-                    <span className="font-bold text-[#087F5B] font-mono">{finding.retest?.currentCondition}</span>
+                    <span className="text-[#85948C] block text-[11px]">Current Retest Condition:</span>
+                    <span className="font-bold text-[#0A6E4F] font-mono">{finding.retest?.currentCondition}</span>
                   </div>
                 )}
               </div>
 
               <button
                 onClick={() => navigate('/retesting')}
-                className="bg-[#087F5B] hover:bg-[#064E3B] text-white px-5 py-2.5 rounded-md text-xs font-bold flex items-center space-x-2 cursor-pointer shadow-sm"
+                className="btn-primary"
               >
                 <Play className="w-4 h-4 fill-current" />
-                <span>GO TO RETEST RUNNER</span>
+                <span>Open Retest Runner</span>
               </button>
             </div>
           )}
 
           {/* TAB 6: TIMELINE & AUDIT TRAIL */}
           {activeTab === 'Timeline' && (
-            <div className="bg-white border border-[#DDE5DF] rounded-lg p-6 space-y-4 shadow-2xs">
-              <h2 className="text-xs font-bold text-[#17211B] uppercase tracking-wider">Lifecycle Audit Trail</h2>
+            <div className="panel-card p-6 space-y-4">
+              <h3 className="text-xs font-bold text-[#16201B] uppercase tracking-wider">Lifecycle Audit Trail</h3>
               <div className="space-y-3 font-mono text-xs">
                 {(finding.auditTrail || []).map((entry, idx) => (
-                  <div key={idx} className="border-l-2 border-[#087F5B] pl-4 py-1 space-y-0.5">
-                    <p className="text-[#64746A] text-[10px]">{new Date(entry.timestamp).toLocaleString()}</p>
-                    <p className="text-[#17211B] font-bold">{entry.action} — Actor: <span className="text-[#087F5B]">{entry.actor}</span></p>
-                    <p className="text-[#64746A] text-[11px]">{entry.details}</p>
+                  <div key={idx} className="border-l-2 border-[#0A6E4F] pl-4 py-1 space-y-0.5">
+                    <p className="text-[#85948C] text-[10px]">{new Date(entry.timestamp).toLocaleString()}</p>
+                    <p className="text-[#16201B] font-bold">{entry.action} — Actor: <span className="text-[#0A6E4F]">{entry.actor}</span></p>
+                    <p className="text-[#56655D] text-[11px] font-sans">{entry.details}</p>
                   </div>
                 ))}
               </div>
@@ -439,7 +432,7 @@ export default function FindingDetailPage() {
           )}
         </div>
 
-        {/* Right Column: AI Security Assistant Sidebar */}
+        {/* Right Column: AI Security Copilot */}
         <div className="space-y-6">
           <AISecurityAssistant finding={finding} />
         </div>

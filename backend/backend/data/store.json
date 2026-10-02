@@ -1,0 +1,170 @@
+{
+  "assessments": [
+    {
+      "id": "WM-2026-532774",
+      "targetName": "World Monitor",
+      "targetUrl": "C:\\Users\\HP\\worldmonitor",
+      "environment": "Authorized Local Sandbox",
+      "status": "COMPLETED",
+      "authorizedBy": "Security Analyst",
+      "authorizationConfirmed": true,
+      "createdAt": "2026-09-30T17:48:52.953Z",
+      "completedAt": "2026-09-30T17:48:52.953Z",
+      "riskIndex": 0,
+      "riskRating": "Clean",
+      "totalFindingsCount": 0,
+      "validatedCount": 0,
+      "verifiedCount": 0,
+      "retestCount": 0,
+      "scopes": [
+        "Client Security",
+        "Authentication",
+        "Authorization",
+        "Input Validation",
+        "Secure Communication",
+        "Data Protection",
+        "Dependencies"
+      ],
+      "checkIds": [
+        "REAL-CHK-001",
+        "REAL-CHK-002",
+        "REAL-CHK-003",
+        "REAL-CHK-004",
+        "REAL-CHK-005",
+        "REAL-CHK-006",
+        "REAL-CHK-007"
+      ],
+      "ruleIds": [
+        "CONFIG-REAL-001",
+        "AUTH-REAL-002",
+        "AUTH-REAL-003",
+        "INPUT-REAL-004",
+        "NET-REAL-005",
+        "STORE-REAL-006",
+        "DEP-REAL-007"
+      ]
+    },
+    {
+      "id": "WM-2026-REAL",
+      "targetName": "World Monitor",
+      "targetUrl": "https://github.com/koala73/worldmonitor.git",
+      "environment": "Authorized Local Sandbox",
+      "status": "COMPLETED",
+      "authorizedBy": "Demo Security Analyst",
+      "authorizationConfirmed": true,
+      "createdAt": "2026-09-30T16:05:07.645Z",
+      "completedAt": "2026-09-30T16:05:07.646Z",
+      "riskIndex": 45,
+      "riskRating": "Moderate",
+      "totalFindingsCount": 1,
+      "validatedCount": 1,
+      "retestCount": 0,
+      "verifiedCount": 0,
+      "scopes": [
+        "Authentication",
+        "Authorization",
+        "Session Management",
+        "API Security",
+        "Input Validation",
+        "Client Security",
+        "Secure Communication",
+        "Data Protection"
+      ]
+    }
+  ],
+  "findings": [],
+  "evidence": {},
+  "latestScanResult": {
+    "success": true,
+    "check": {
+      "checkId": "REAL-CHK-001,REAL-CHK-002,REAL-CHK-003,REAL-CHK-004,REAL-CHK-005,REAL-CHK-006,REAL-CHK-007",
+      "checkName": "Client-Side Credential Exposure, Authentication & Session Security Configuration, Authorization & Access Control Patterns, Input Validation Weaknesses, Insecure Network & HTTP Configuration, Sensitive Client-Side Storage Usage, Dependency & Configuration Issues",
+      "target": "World Monitor (Authorized Local Sandbox)",
+      "targetRoot": "C:\\Users\\HP\\worldmonitor",
+      "scannedFilesCount": 0,
+      "matchesCount": 0,
+      "conditionStatus": "NO_MATCH",
+      "sourceHash": "N/A",
+      "timestamp": "2026-09-30T17:48:52.947Z"
+    },
+    "executedChecks": [
+      {
+        "id": "REAL-CHK-001",
+        "ruleId": "CONFIG-REAL-001",
+        "name": "Client-Side Credential Exposure",
+        "category": "Configuration Hygiene",
+        "scope": "Client Modules & AST Exported Configs",
+        "description": "Uses Babel AST parser to inspect TypeScript/JSX string literals for exposed client-accessible API keys or secret properties."
+      },
+      {
+        "id": "REAL-CHK-002",
+        "ruleId": "AUTH-REAL-002",
+        "name": "Authentication & Session Security Configuration",
+        "category": "Authentication & Session Management",
+        "scope": "Auth Providers & Session Modules",
+        "description": "Inspects source files for hardcoded JWT secret tokens, unencrypted session cookies, or static auth overrides."
+      },
+      {
+        "id": "REAL-CHK-003",
+        "ruleId": "AUTH-REAL-003",
+        "name": "Authorization & Access Control Patterns",
+        "category": "Authorization & Access Control",
+        "scope": "API Controllers & Middleware",
+        "description": "Inspects API headers and route declarations for permissive wildcard CORS origins or disabled access authorization guards."
+      },
+      {
+        "id": "REAL-CHK-004",
+        "ruleId": "INPUT-REAL-004",
+        "name": "Input Validation Weaknesses",
+        "category": "Input Validation & Data Handling",
+        "scope": "React Rendering Components",
+        "description": "Inspects JSX components for unsanitized dangerouslySetInnerHTML bindings or raw HTML injections."
+      },
+      {
+        "id": "REAL-CHK-005",
+        "ruleId": "NET-REAL-005",
+        "name": "Insecure Network & HTTP Configuration",
+        "category": "Secure Communication Mechanisms",
+        "scope": "HTTP Client Service Bindings",
+        "description": "Audits network client service files for unencrypted HTTP URL calls or plaintext transport channels."
+      },
+      {
+        "id": "REAL-CHK-006",
+        "ruleId": "STORE-REAL-006",
+        "name": "Sensitive Client-Side Storage Usage",
+        "category": "Data Storage & Privacy Protections",
+        "scope": "Browser LocalStorage Invocation Sites",
+        "description": "Audits storage wrappers for direct persistence of sensitive session credentials in unencrypted browser LocalStorage."
+      },
+      {
+        "id": "REAL-CHK-007",
+        "ruleId": "DEP-REAL-007",
+        "name": "Dependency & Configuration Issues",
+        "category": "Dependency & Configuration Security",
+        "scope": "package.json & Build Specs",
+        "description": "Audits root package specs and lockfiles for outdated dependencies, vulnerable script definitions, or missing lockfile integrity."
+      }
+    ],
+    "observations": [],
+    "findings": [],
+    "evidence": []
+  },
+  "auditLogs": [
+    {
+      "id": "LOG-532959",
+      "timestamp": "2026-09-30T17:48:52.959Z",
+      "action": "ASSESSMENT_START",
+      "actor": "AegisScan Engine",
+      "target": "World Monitor",
+      "details": "Assessment WM-2026-532774 completed for 7 check(s)."
+    },
+    {
+      "id": "LOG-0001",
+      "timestamp": "2026-09-30T16:05:07.646Z",
+      "action": "SYSTEM_INIT",
+      "actor": "AegisScan Backend Engine",
+      "target": "World Monitor",
+      "details": "Backend persistence store initialized."
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bot, Sparkles, ChevronRight, CheckCircle2, ShieldCheck, Terminal } from 'lucide-react';
+import { Bot, Sparkles, ChevronRight, ShieldCheck, Terminal, Loader2 } from 'lucide-react';
 
 export default function AISecurityAssistant({ finding }) {
   const [activeQuery, setActiveQuery] = useState(null);
@@ -15,107 +15,107 @@ export default function AISecurityAssistant({ finding }) {
       setLoading(false);
       if (type === 'EXPLAIN_FINDING') {
         setResponse({
-          title: 'Technical Context Analysis',
-          content: `Finding ${finding.id} represents a ${finding.severity} severity ${finding.category} issue in component ${finding.component}.\n\nRoot Cause: ${finding.rootCause}.\n\nAI Context: Static rule inspection identified exported configuration variables in client-side runtime context. Server endpoints should enforce environment variable boundaries.`
+          title: 'Technical Context & Root Cause Analysis',
+          content: `Finding ${finding.id} represents a ${finding.severity} severity ${finding.category} issue in component ${finding.component}.\n\nRoot Cause: ${finding.rootCause || 'Static AST rules identified client-side exposure.'}\n\nSecurity Context: Static AST inspection identified exposed properties within the client runtime bundle. Configuration values must be scoped to server-side process boundaries.`
         });
       } else if (type === 'BUSINESS_IMPACT') {
         setResponse({
-          title: 'Business Impact Assessment',
-          content: `Operational risk rating is evaluated as ${finding.severity}.\n\nUnmitigated exposure could allow unauthorized access to internal service parameters. Response SLA is prioritized for resolution within current release cycle.`
+          title: 'Operational & Business Risk Assessment',
+          content: `Assessed Impact: Operational risk is rated ${finding.severity}.\n\nExposure could permit unauthenticated actors to observe internal API routing or bypass rate-limiting controls. Remediation is required before promotion beyond the authorized sandbox environment.`
         });
       } else if (type === 'REMEDIATION_SUMMARY') {
         setResponse({
-          title: 'Structured Remediation Plan',
-          content: `1. Move secret keys to server-side process environment.\n2. Expose only required public flags via build-time injection.\n3. Validate fix via retest engine run.`
+          title: 'Deterministic Remediation Guidance',
+          content: `1. Migrate secrets and sensitive flags from client-side config to process.env.\n2. Restrict Vite bundle injection to public identifiers only.\n3. Trigger automated retest to verify clean AST evaluation.`
         });
       }
-    }, 500);
+    }, 450);
   };
 
   return (
-    <div className="bg-white border border-[#DDE5DF] rounded-lg p-5 space-y-4 shadow-2xs">
+    <div className="panel-card p-5 space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-[#DDE5DF] pb-3">
+      <div className="flex items-center justify-between border-b border-[#DEE5E0] pb-3">
         <div className="flex items-center space-x-2.5">
-          <div className="w-8 h-8 rounded-md bg-[#E6F4F1] border border-[#B2DFDB] flex items-center justify-center text-[#087F5B]">
+          <div className="w-8 h-8 rounded-lg bg-[#EBF5F0] border border-[#B6DEC9] flex items-center justify-center text-[#0A6E4F] shrink-0">
             <Bot className="w-4 h-4" />
           </div>
           <div>
-            <h3 className="text-xs font-extrabold text-[#17211B] uppercase tracking-wider flex items-center gap-1.5">
-              AI SECURITY ANALYZER
-              <Sparkles className="w-3.5 h-3.5 text-[#087F5B]" />
+            <h3 className="text-xs font-bold text-[#16201B] uppercase tracking-wider flex items-center gap-1.5">
+              <span>AI Security Copilot</span>
+              <Sparkles className="w-3.5 h-3.5 text-[#0A6E4F]" />
             </h3>
-            <p className="text-[10px] text-[#64746A]">Contextual Finding Intelligence</p>
+            <p className="text-[10px] text-[#56655D]">Contextual Analysis & Remediation</p>
           </div>
         </div>
         <span className="badge-emerald text-[10px] font-bold px-2 py-0.5 rounded">
-          Structured Analysis
+          Copilot Active
         </span>
       </div>
 
-      {/* Quick Prompt Action Buttons */}
+      {/* Action Prompts */}
       <div className="space-y-2">
         <button
           onClick={() => handleAction('EXPLAIN_FINDING')}
-          className={`w-full text-left px-3 py-2 rounded-md text-xs font-bold border transition-colors flex items-center justify-between cursor-pointer ${
+          className={`w-full text-left px-3 py-2 rounded-md text-xs font-semibold border transition-all flex items-center justify-between cursor-pointer ${
             activeQuery === 'EXPLAIN_FINDING'
-              ? 'bg-[#E6F4F1] border-[#087F5B] text-[#064E3B]'
-              : 'bg-[#F7F8F5] border-[#DDE5DF] text-[#17211B] hover:bg-white'
+              ? 'bg-[#EBF5F0] border-[#0A6E4F] text-[#064E3B] shadow-2xs'
+              : 'bg-[#F8F9F6] border-[#DEE5E0] text-[#16201B] hover:bg-white hover:border-[#CBD5CE]'
           }`}
         >
-          <span>Explain Finding & Context</span>
-          <ChevronRight className="w-3.5 h-3.5 text-[#64746A]" />
+          <span>Explain Vulnerability Context</span>
+          <ChevronRight className="w-3.5 h-3.5 text-[#85948C]" />
         </button>
 
         <button
           onClick={() => handleAction('BUSINESS_IMPACT')}
-          className={`w-full text-left px-3 py-2 rounded-md text-xs font-bold border transition-colors flex items-center justify-between cursor-pointer ${
+          className={`w-full text-left px-3 py-2 rounded-md text-xs font-semibold border transition-all flex items-center justify-between cursor-pointer ${
             activeQuery === 'BUSINESS_IMPACT'
-              ? 'bg-[#E6F4F1] border-[#087F5B] text-[#064E3B]'
-              : 'bg-[#F7F8F5] border-[#DDE5DF] text-[#17211B] hover:bg-white'
+              ? 'bg-[#EBF5F0] border-[#0A6E4F] text-[#064E3B] shadow-2xs'
+              : 'bg-[#F8F9F6] border-[#DEE5E0] text-[#16201B] hover:bg-white hover:border-[#CBD5CE]'
           }`}
         >
-          <span>Evaluate Business Impact</span>
-          <ChevronRight className="w-3.5 h-3.5 text-[#64746A]" />
+          <span>Evaluate Operational Risk</span>
+          <ChevronRight className="w-3.5 h-3.5 text-[#85948C]" />
         </button>
 
         <button
           onClick={() => handleAction('REMEDIATION_SUMMARY')}
-          className={`w-full text-left px-3 py-2 rounded-md text-xs font-bold border transition-colors flex items-center justify-between cursor-pointer ${
+          className={`w-full text-left px-3 py-2 rounded-md text-xs font-semibold border transition-all flex items-center justify-between cursor-pointer ${
             activeQuery === 'REMEDIATION_SUMMARY'
-              ? 'bg-[#E6F4F1] border-[#087F5B] text-[#064E3B]'
-              : 'bg-[#F7F8F5] border-[#DDE5DF] text-[#17211B] hover:bg-white'
+              ? 'bg-[#EBF5F0] border-[#0A6E4F] text-[#064E3B] shadow-2xs'
+              : 'bg-[#F8F9F6] border-[#DEE5E0] text-[#16201B] hover:bg-white hover:border-[#CBD5CE]'
           }`}
         >
-          <span>Generate Remediation Plan</span>
-          <ChevronRight className="w-3.5 h-3.5 text-[#64746A]" />
+          <span>Generate Structured Fix Plan</span>
+          <ChevronRight className="w-3.5 h-3.5 text-[#85948C]" />
         </button>
       </div>
 
-      {/* Response Box */}
+      {/* Response Display */}
       {loading && (
-        <div className="p-4 bg-[#F7F8F5] border border-[#DDE5DF] rounded-md text-xs text-[#087F5B] flex items-center space-x-2 animate-pulse">
-          <Sparkles className="w-4 h-4 animate-spin text-[#087F5B]" />
-          <span>Generating AI contextual analysis for {finding.id}...</span>
+        <div className="p-4 bg-[#F8F9F6] border border-[#DEE5E0] rounded-lg text-xs text-[#0A6E4F] flex items-center space-x-2">
+          <Loader2 className="w-4 h-4 animate-spin text-[#0A6E4F]" />
+          <span>Generating contextual intelligence for {finding.id}...</span>
         </div>
       )}
 
       {response && !loading && (
-        <div className="p-4 bg-[#E6F4F1] border border-[#B2DFDB] rounded-md space-y-2">
+        <div className="p-4 bg-[#EBF5F0] border border-[#B6DEC9] rounded-lg space-y-2 animate-fade-in">
           <h4 className="text-xs font-bold text-[#064E3B] flex items-center gap-1.5">
-            <Terminal className="w-3.5 h-3.5 text-[#087F5B]" />
-            {response.title}
+            <Terminal className="w-3.5 h-3.5 text-[#0A6E4F]" />
+            <span>{response.title}</span>
           </h4>
-          <p className="text-xs text-[#17211B] whitespace-pre-line leading-relaxed font-medium">
+          <p className="text-xs text-[#16201B] whitespace-pre-line leading-relaxed font-normal">
             {response.content}
           </p>
         </div>
       )}
 
-      {/* System positioning notice */}
-      <div className="pt-2 border-t border-[#DDE5DF] flex items-center space-x-2 text-[10px] text-[#64746A]">
-        <ShieldCheck className="w-3.5 h-3.5 text-[#087F5B] shrink-0" />
-        <span>AI serves strictly as contextual analyzer; finding status requires empirical evidence.</span>
+      {/* Governance Notice */}
+      <div className="pt-2 border-t border-[#DEE5E0] flex items-center space-x-2 text-[10px] text-[#85948C]">
+        <ShieldCheck className="w-3.5 h-3.5 text-[#0A6E4F] shrink-0" />
+        <span>Advisory only: finding state changes require empirical evidence.</span>
       </div>
     </div>
   );
